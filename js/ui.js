@@ -52,6 +52,12 @@
   }
 
   function renderVerdict(assessment) {
+    const lowConfidenceCallout = (
+      (assessment.overallGrade.grade === "D" || assessment.overallGrade.grade === "E") &&
+      assessment.confidence.level === "低"
+    )
+      ? '<span class="warning-chip urgent-callout"><strong>直前の空・衛星画像確認推奨</strong></span>'
+      : "";
     const warnings = assessment.nightWarnings.length
       ? assessment.nightWarnings
           .map(
@@ -83,11 +89,16 @@
           <div class="confidence-block" data-tone="${assessment.confidence.tone}">
             <span class="eyebrow">信頼度</span>
             <strong>${assessment.confidence.level}</strong>
+            <div class="difference-summary">
+              <span>最大差 <strong>${formatValue(assessment.modelDifference.maxDifference)}${Number.isFinite(assessment.modelDifference.maxDifference) ? "%" : ""}</strong></span>
+              <span>予報割れ <strong>${assessment.modelDifference.splitHours + assessment.modelDifference.largeHours} 時間</strong></span>
+              <span>最大差時刻 <strong>${assessment.modelDifference.maxDifferenceTime ? formatHour(assessment.modelDifference.maxDifferenceTime) : "--"}</strong></span>
+            </div>
           </div>
         </div>
         <p class="muted">JMA と GFS の平均スコアが 70 点以上の連続区間だけをおすすめ候補にしています。</p>
         <p class="muted">${assessment.confidence.note}</p>
-        <div class="warning-row">${warnings}</div>
+        <div class="warning-row">${warnings}${lowConfidenceCallout}</div>
       </div>
     `;
   }
@@ -189,30 +200,22 @@
   }
 
   function renderRows(assessment) {
-    const rows = assessment.models
-      .flatMap((model) => model.rows.map((row) => ({ ...row, source: model.source })))
-      .sort((left, right) => left.time.localeCompare(right.time) || left.source.label.localeCompare(right.source.label));
-
-    elements.forecastRows.innerHTML = rows
+    elements.forecastRows.innerHTML = assessment.comparisonRows
       .map(
         (row) => `
           <tr>
             <td>${formatHour(row.time)}</td>
-            <td>${row.source.label}</td>
-            <td>${formatValue(row.cloud_cover)}</td>
-            <td>${formatValue(row.cloud_cover_low)}</td>
-            <td>${formatValue(row.cloud_cover_mid)}</td>
-            <td>${formatValue(row.cloud_cover_high)}</td>
-            <td>${formatValue(row.temperature_2m, 1)}</td>
-            <td>${formatValue(row.relative_humidity_2m)}</td>
-            <td>${formatValue(row.dew_point_2m, 1)}</td>
-            <td>${formatValue(row.dewPointSpread, 1)}</td>
-            <td>${formatValue(row.precipitation, 1)}</td>
-            <td class="row-score">${formatValue(row.score)}</td>
-            <td class="${row.modelDifferenceLabel ? "difference-alert" : ""}">
+            <td>${formatValue(row.jmaCloudCover)}</td>
+            <td>${formatValue(row.gfsCloudCover)}</td>
+            <td class="${row.modelDifference >= 40 ? "difference-alert" : "difference-stable"}">
               ${formatValue(row.modelDifference)}${Number.isFinite(row.modelDifference) ? "%" : ""}
               ${row.modelDifferenceLabel ? `<span>${row.modelDifferenceLabel}</span>` : ""}
             </td>
+            <td>${formatValue(row.jmaScore)}</td>
+            <td>${formatValue(row.gfsScore)}</td>
+            <td class="row-score">${formatValue(row.averageScore)}</td>
+            <td>${formatValue(row.relative_humidity_2m)}</td>
+            <td>${formatValue(row.dewPointSpread, 1)}</td>
             <td>${row.warnings.length ? row.warnings.join(" / ") : "--"}</td>
           </tr>
         `

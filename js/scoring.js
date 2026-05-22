@@ -368,15 +368,19 @@
       return null;
     }
 
-    if (difference >= 50) {
-      return "予報大きく不一致";
+    if (difference >= 60) {
+      return "大きく不一致";
     }
 
-    if (difference >= 30) {
+    if (difference >= 40) {
       return "予報割れ";
     }
 
-    return null;
+    if (difference >= 20) {
+      return "やや不一致";
+    }
+
+    return "安定";
   }
 
   function mapRowsByTime(model) {
@@ -393,6 +397,8 @@
         byTime,
         largeHours: 0,
         splitHours: 0,
+        maxDifference: null,
+        maxDifferenceTime: null,
         confidence: {
           level: "低",
           tone: "poor",
@@ -406,6 +412,8 @@
     const sharedTimes = Array.from(jmaRows.keys()).filter((time) => gfsRows.has(time)).sort();
     let largeHours = 0;
     let splitHours = 0;
+    let maxDifference = null;
+    let maxDifferenceTime = null;
 
     sharedTimes.forEach((time) => {
       const jmaCloud = jmaRows.get(time).cloud_cover;
@@ -415,10 +423,15 @@
         : null;
       const label = getDisagreementLabel(difference);
 
-      if (label === "予報大きく不一致") {
+      if (label === "大きく不一致") {
         largeHours += 1;
       } else if (label === "予報割れ") {
         splitHours += 1;
+      }
+
+      if (Number.isFinite(difference) && (!Number.isFinite(maxDifference) || difference > maxDifference)) {
+        maxDifference = difference;
+        maxDifferenceTime = time;
       }
 
       byTime.set(time, {
@@ -432,10 +445,12 @@
         byTime,
         largeHours,
         splitHours,
+        maxDifference,
+        maxDifferenceTime,
         confidence: {
           level: "低",
           tone: "poor",
-          note: "JMA と GFS の総雲量差が 50% 以上の時間があります。"
+          note: "JMA と GFS の総雲量差が 60% 以上の時間があります。"
         }
       };
     }
@@ -445,10 +460,12 @@
         byTime,
         largeHours,
         splitHours,
+        maxDifference,
+        maxDifferenceTime,
         confidence: {
           level: "中",
           tone: "watch",
-          note: "JMA と GFS の総雲量差が 30% 以上の時間があります。"
+          note: "JMA と GFS の総雲量差が 40% 以上の時間があります。"
         }
       };
     }
@@ -457,6 +474,8 @@
       byTime,
       largeHours,
       splitHours,
+      maxDifference,
+      maxDifferenceTime,
       confidence: {
         level: "高",
         tone: "good",
@@ -473,6 +492,32 @@
         ...row,
         modelDifference: disagreement ? disagreement.difference : null,
         modelDifferenceLabel: disagreement ? disagreement.label : null
+      };
+    });
+  }
+
+  function buildComparisonRows(ensembleModels, hourlyConsensus) {
+    const jma = ensembleModels.find((model) => model.source.id === "jma");
+    const gfs = ensembleModels.find((model) => model.source.id === "gfs");
+    const jmaRows = jma ? mapRowsByTime(jma) : new Map();
+    const gfsRows = gfs ? mapRowsByTime(gfs) : new Map();
+
+    return hourlyConsensus.map((row) => {
+      const jmaRow = jmaRows.get(row.time);
+      const gfsRow = gfsRows.get(row.time);
+
+      return {
+        time: row.time,
+        jmaCloudCover: jmaRow ? jmaRow.cloud_cover : null,
+        gfsCloudCover: gfsRow ? gfsRow.cloud_cover : null,
+        modelDifference: row.modelDifference,
+        modelDifferenceLabel: row.modelDifferenceLabel,
+        jmaScore: jmaRow ? jmaRow.score : null,
+        gfsScore: gfsRow ? gfsRow.score : null,
+        averageScore: row.score,
+        relative_humidity_2m: row.relative_humidity_2m,
+        dewPointSpread: row.dewPointSpread,
+        warnings: row.warnings
       };
     });
   }
@@ -507,6 +552,7 @@
       recommendedWindow: getRecommendedWindow(hourlyConsensus, overallGrade),
       cloudLayers: summarizeCloudLayers(hourlyConsensus),
       nightWarnings: summarizeWarnings(hourlyConsensus),
+      comparisonRows: buildComparisonRows(ensembleModelsWithDifference, hourlyConsensus),
       modelDifference,
       confidence: modelDifference.confidence
     };
