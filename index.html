@@ -3,7 +3,11 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#1f7a62" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="彦根 星撮り雲量スコア" />
     <title>彦根 星撮り雲量スコア</title>
+    <link rel="manifest" href="./manifest.json" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
@@ -21,8 +25,12 @@
     <main>
       <section class="overview-band" aria-labelledby="nightTitle">
         <div>
-          <p class="eyebrow">固定地点</p>
-          <h2 id="nightTitle">滋賀県彦根市</h2>
+          <p class="eyebrow">撮影候補地</p>
+          <h2 id="nightTitle">彦根市</h2>
+          <label class="location-picker" for="locationSelect">
+            <span>地点を選択</span>
+            <select id="locationSelect" aria-label="撮影候補地を選択"></select>
+          </label>
           <p id="nightWindow" class="muted">今夜枠を計算中...</p>
         </div>
         <div class="notice">

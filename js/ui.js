@@ -1,6 +1,8 @@
 (function () {
   const elements = {
     refreshButton: document.getElementById("refreshButton"),
+    locationSelect: document.getElementById("locationSelect"),
+    nightTitle: document.getElementById("nightTitle"),
     nightWindow: document.getElementById("nightWindow"),
     statusMessage: document.getElementById("statusMessage"),
     verdictPanel: document.getElementById("verdictPanel"),
@@ -17,10 +19,28 @@
   function setLoading(isLoading) {
     elements.refreshButton.disabled = isLoading;
     elements.refreshButton.setAttribute("aria-busy", String(isLoading));
+    elements.locationSelect.disabled = isLoading;
   }
 
   function setWindowLabel(windowRange) {
     elements.nightWindow.textContent = `${windowRange.label} / Asia/Tokyo`;
+  }
+
+  function renderLocationOptions(locations, selectedLocationId) {
+    elements.locationSelect.innerHTML = locations
+      .map(
+        (location) => `
+          <option value="${location.id}" ${location.id === selectedLocationId ? "selected" : ""}>
+            ${location.name}
+          </option>
+        `
+      )
+      .join("");
+  }
+
+  function setLocation(location) {
+    elements.nightTitle.textContent = location.name;
+    elements.locationSelect.value = location.id;
   }
 
   function setStatus(message, tone = "neutral") {
@@ -388,6 +408,8 @@
 
   window.CloudAppUi = {
     setLoading,
+    renderLocationOptions,
+    setLocation,
     setWindowLabel,
     setStatus,
     renderForecast,

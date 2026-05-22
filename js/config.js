@@ -1,11 +1,45 @@
 (function () {
   window.CloudAppConfig = {
-    location: {
-      label: "滋賀県彦根市",
-      latitude: 35.2744,
-      longitude: 136.2597,
-      timezone: "Asia/Tokyo"
-    },
+    timezone: "Asia/Tokyo",
+    defaultLocationId: "hikone",
+    locations: [
+      {
+        id: "hikone",
+        name: "彦根市",
+        latitude: 35.2744,
+        longitude: 136.2597
+      },
+      {
+        id: "taga",
+        name: "多賀町",
+        latitude: 35.2241,
+        longitude: 136.2907
+      },
+      {
+        id: "maibara",
+        name: "米原市",
+        latitude: 35.3167,
+        longitude: 136.2833
+      },
+      {
+        id: "nagahama",
+        name: "長浜市",
+        latitude: 35.3815,
+        longitude: 136.2755
+      },
+      {
+        id: "yogo",
+        name: "余呉",
+        latitude: 35.55,
+        longitude: 136.2
+      },
+      {
+        id: "suzuka-foothills",
+        name: "鈴鹿山麓候補地",
+        latitude: 35.235,
+        longitude: 136.34
+      }
+    ],
     hourlyFields: [
       "cloud_cover",
       "cloud_cover_low",

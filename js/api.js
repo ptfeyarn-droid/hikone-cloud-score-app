@@ -7,7 +7,7 @@
 
   function getTokyoDateParts(date) {
     const formatter = new Intl.DateTimeFormat("en-CA", {
-      timeZone: config.location.timezone,
+      timeZone: config.timezone,
       year: "numeric",
       month: "2-digit",
       day: "2-digit"
@@ -49,11 +49,11 @@
     };
   }
 
-  function buildForecastUrl(source) {
+  function buildForecastUrl(source, location) {
     const url = new URL(source.endpoint);
-    url.searchParams.set("latitude", config.location.latitude);
-    url.searchParams.set("longitude", config.location.longitude);
-    url.searchParams.set("timezone", config.location.timezone);
+    url.searchParams.set("latitude", location.latitude);
+    url.searchParams.set("longitude", location.longitude);
+    url.searchParams.set("timezone", config.timezone);
     url.searchParams.set("forecast_days", "2");
     url.searchParams.set("hourly", config.hourlyFields.join(","));
     return url.toString();
@@ -85,8 +85,8 @@
       .filter((row) => row.time >= windowRange.start && row.time <= windowRange.end);
   }
 
-  async function fetchSource(source, windowRange) {
-    const response = await fetch(buildForecastUrl(source));
+  async function fetchSource(source, windowRange, location) {
+    const response = await fetch(buildForecastUrl(source, location));
     const payload = await response.json();
 
     if (!response.ok || payload.error) {
@@ -103,10 +103,10 @@
     };
   }
 
-  async function fetchNightForecasts() {
+  async function fetchNightForecasts(location) {
     const windowRange = getTonightWindow();
     const settled = await Promise.allSettled(
-      config.sources.map((source) => fetchSource(source, windowRange))
+      config.sources.map((source) => fetchSource(source, windowRange, location))
     );
 
     const models = [];
@@ -124,7 +124,7 @@
     });
 
     return {
-      location: config.location,
+      location,
       windowRange,
       models,
       errors

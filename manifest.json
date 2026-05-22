@@ -1,0 +1,11 @@
+{
+  "name": "彦根 星撮り雲量スコア",
+  "short_name": "彦根 星撮り",
+  "description": "彦根市の天体撮影判断を補助する雲量スコアビューア",
+  "lang": "ja",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "theme_color": "#1f7a62",
+  "background_color": "#f6f3ec"
+}

@@ -124,6 +124,29 @@ main {
   font-size: 1.35rem;
 }
 
+.location-picker {
+  width: min(100%, 360px);
+  display: grid;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.location-picker span {
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.location-picker select {
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 12px;
+  color: var(--ink);
+  background: #fff;
+  font: inherit;
+}
+
 .notice {
   border-left: 4px solid var(--amber);
   padding: 16px 18px;
@@ -744,6 +767,15 @@ tbody tr:hover {
   .overview-band {
     min-height: 0;
     gap: 12px;
+  }
+
+  .location-picker {
+    width: 100%;
+    margin-bottom: 8px;
+  }
+
+  .location-picker select {
+    min-height: 48px;
   }
 
   .notice {
