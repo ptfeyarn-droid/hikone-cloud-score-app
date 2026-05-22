@@ -1,43 +1,50 @@
 (function () {
   window.CloudAppConfig = {
     timezone: "Asia/Tokyo",
+    astroAppUrl: "https://ptfeyarn-droid.github.io/hikone-astro-app/",
     defaultLocationId: "hikone",
     locations: [
       {
         id: "hikone",
         name: "彦根市",
         latitude: 35.2744,
-        longitude: 136.2597
+        longitude: 136.2597,
+        elevation: 95
       },
       {
         id: "taga",
         name: "多賀町",
         latitude: 35.2241,
-        longitude: 136.2907
+        longitude: 136.2907,
+        elevation: 140
       },
       {
         id: "maibara",
         name: "米原市",
         latitude: 35.3167,
-        longitude: 136.2833
+        longitude: 136.2833,
+        elevation: 105
       },
       {
         id: "nagahama",
         name: "長浜市",
         latitude: 35.3815,
-        longitude: 136.2755
+        longitude: 136.2755,
+        elevation: 85
       },
       {
         id: "yogo",
         name: "余呉",
         latitude: 35.55,
-        longitude: 136.2
+        longitude: 136.2,
+        elevation: 150
       },
       {
         id: "suzuka-foothills",
         name: "鈴鹿山麓候補地",
         latitude: 35.235,
-        longitude: 136.34
+        longitude: 136.34,
+        elevation: 320
       }
     ],
     hourlyFields: [

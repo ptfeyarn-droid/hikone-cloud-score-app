@@ -49,6 +49,10 @@
     };
   }
 
+  function getTokyoDateKey(referenceDate = new Date()) {
+    return formatDateKey(getTokyoDateParts(referenceDate));
+  }
+
   function buildForecastUrl(source, location) {
     const url = new URL(source.endpoint);
     url.searchParams.set("latitude", location.latitude);
@@ -133,6 +137,7 @@
 
   window.CloudAppApi = {
     fetchNightForecasts,
-    getTonightWindow
+    getTonightWindow,
+    getTokyoDateKey
   };
 })();

@@ -1,10 +1,13 @@
 (function () {
   const elements = {
     refreshButton: document.getElementById("refreshButton"),
+    compareButton: document.getElementById("compareButton"),
     locationSelect: document.getElementById("locationSelect"),
     nightTitle: document.getElementById("nightTitle"),
     nightWindow: document.getElementById("nightWindow"),
     statusMessage: document.getElementById("statusMessage"),
+    locationCompare: document.getElementById("locationCompare"),
+    locationCompareCards: document.getElementById("locationCompareCards"),
     verdictPanel: document.getElementById("verdictPanel"),
     nightSummary: document.getElementById("nightSummary"),
     modelCards: document.getElementById("modelCards"),
@@ -15,11 +18,18 @@
   };
 
   let lastAssessment = null;
+  let lastComparisons = [];
+  let lastAstroUrlBuilder = null;
 
   function setLoading(isLoading) {
     elements.refreshButton.disabled = isLoading;
     elements.refreshButton.setAttribute("aria-busy", String(isLoading));
     elements.locationSelect.disabled = isLoading;
+  }
+
+  function setCompareLoading(isLoading) {
+    elements.compareButton.disabled = isLoading;
+    elements.compareButton.setAttribute("aria-busy", String(isLoading));
   }
 
   function setWindowLabel(windowRange) {
@@ -41,6 +51,10 @@
   function setLocation(location) {
     elements.nightTitle.textContent = location.name;
     elements.locationSelect.value = location.id;
+
+    if (lastComparisons.length) {
+      renderLocationComparison(lastComparisons, location.id, lastAstroUrlBuilder);
+    }
   }
 
   function setStatus(message, tone = "neutral") {
@@ -78,6 +92,53 @@
     }
 
     return `${formatClock(windowRange.start)}〜${formatClock(windowRange.end)}`;
+  }
+
+  function getPrimaryWarning(assessment) {
+    if (assessment.nightWarnings.length) {
+      return assessment.nightWarnings[0].label;
+    }
+
+    if (assessment.confidence.level === "低") {
+      return "予報割れ注意";
+    }
+
+    return "目立つ注意なし";
+  }
+
+  function renderLocationComparison(comparisons, selectedLocationId, buildAstroAppUrl) {
+    lastComparisons = comparisons;
+    lastAstroUrlBuilder = buildAstroAppUrl;
+    elements.locationCompare.hidden = false;
+    elements.locationCompareCards.innerHTML = comparisons
+      .map((item) => {
+        const assessment = item.assessment;
+        const isSelected = item.location.id === selectedLocationId;
+
+        return `
+          <article class="location-compare-card ${isSelected ? "is-selected" : ""}">
+            <button class="location-switch-button" type="button" data-location-id="${item.location.id}">
+              ${item.location.name}
+            </button>
+            <div class="compare-grade">
+              <strong>${assessment.overallGrade.grade}</strong>
+              <span>${assessment.overallGrade.label}</span>
+            </div>
+            <dl>
+              <div><dt>総合スコア</dt><dd>${formatValue(assessment.overallScore)}</dd></div>
+              <div><dt>おすすめ</dt><dd>${formatRecommendation(assessment.recommendedWindow)}</dd></div>
+              <div><dt>賭け候補</dt><dd>${formatGambleWindow(assessment.gambleWindow)}</dd></div>
+              <div><dt>信頼度</dt><dd>${assessment.confidence.level}</dd></div>
+              <div><dt>最大差</dt><dd>${formatValue(assessment.modelDifference.maxDifference)}${Number.isFinite(assessment.modelDifference.maxDifference) ? "%" : ""}</dd></div>
+              <div><dt>主な注意</dt><dd>${getPrimaryWarning(assessment)}</dd></div>
+            </dl>
+            <a class="astro-app-link" href="${buildAstroAppUrl(item.location)}">
+              この地点で天文条件を見る
+            </a>
+          </article>
+        `;
+      })
+      .join("");
   }
 
   function renderVerdict(assessment) {
@@ -390,14 +451,28 @@
     });
   }
 
-  function renderForecast(assessment) {
+  function renderForecast(assessment, astroAppUrl) {
     lastAssessment = assessment;
     renderVerdict(assessment);
     renderNightSummary(assessment);
+    renderAstroAppLink(astroAppUrl);
     renderModelCards(assessment);
     renderLegend(assessment);
     renderRows(assessment);
     drawChart(assessment);
+  }
+
+  function renderAstroAppLink(astroAppUrl) {
+    if (!astroAppUrl) {
+      return;
+    }
+
+    const button = `
+      <a class="astro-app-link detail-astro-link" href="${astroAppUrl}">
+        この地点で天文条件を見る
+      </a>
+    `;
+    elements.verdictPanel.insertAdjacentHTML("beforeend", button);
   }
 
   function redrawChart() {
@@ -408,7 +483,9 @@
 
   window.CloudAppUi = {
     setLoading,
+    setCompareLoading,
     renderLocationOptions,
+    renderLocationComparison,
     setLocation,
     setWindowLabel,
     setStatus,

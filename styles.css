@@ -147,6 +147,42 @@ main {
   font: inherit;
 }
 
+.compare-button {
+  min-height: 44px;
+  border: 1px solid var(--blue);
+  border-radius: 8px;
+  padding: 0 14px;
+  color: #fff;
+  background: var(--blue);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.compare-button:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+
+.astro-app-link {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--green);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: #fff;
+  background: var(--green);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.detail-astro-link {
+  align-self: stretch;
+  margin-top: 10px;
+}
+
 .notice {
   border-left: 4px solid var(--amber);
   padding: 16px 18px;
@@ -190,6 +226,86 @@ main {
   border-color: rgba(181, 106, 22, 0.36);
   color: #7a450a;
   background: rgba(181, 106, 22, 0.08);
+}
+
+.location-compare {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 18px;
+  background: #fbf8f1;
+}
+
+.location-compare .section-head {
+  margin-bottom: 12px;
+}
+
+.location-compare-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.location-compare-card {
+  min-height: 262px;
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  background: var(--paper);
+}
+
+.location-compare-card.is-selected {
+  border-color: var(--green);
+  box-shadow: inset 0 0 0 1px var(--green);
+}
+
+.location-switch-button {
+  width: fit-content;
+  border: 0;
+  padding: 0;
+  color: var(--blue);
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-size: 1.08rem;
+  font-weight: 800;
+  text-align: left;
+}
+
+.compare-grade {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.compare-grade strong {
+  font-size: 2.2rem;
+  line-height: 1;
+}
+
+.location-compare-card dl {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+}
+
+.location-compare-card dl div {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+}
+
+.location-compare-card dt {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.location-compare-card dd {
+  margin: 0;
+  font-weight: 700;
 }
 
 .night-summary {
@@ -776,6 +892,29 @@ tbody tr:hover {
 
   .location-picker select {
     min-height: 48px;
+  }
+
+  .compare-button {
+    width: 100%;
+    min-height: 48px;
+  }
+
+  .astro-app-link {
+    width: 100%;
+    min-height: 48px;
+  }
+
+  .location-compare {
+    padding: 12px;
+  }
+
+  .location-compare-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .location-compare-card {
+    min-height: 0;
+    padding: 12px;
   }
 
   .notice {

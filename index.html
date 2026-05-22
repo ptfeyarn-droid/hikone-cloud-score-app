@@ -31,6 +31,9 @@
             <span>地点を選択</span>
             <select id="locationSelect" aria-label="撮影候補地を選択"></select>
           </label>
+          <button id="compareButton" class="compare-button" type="button">
+            全地点を比較
+          </button>
           <p id="nightWindow" class="muted">今夜枠を計算中...</p>
         </div>
         <div class="notice">
@@ -41,6 +44,15 @@
 
       <section class="summary-band" aria-live="polite">
         <div id="statusMessage" class="status-message" role="status">Open-Meteo から夜間データを取得しています...</div>
+        <section id="locationCompare" class="location-compare" aria-labelledby="locationCompareTitle" hidden>
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">候補地サマリー</p>
+              <h2 id="locationCompareTitle">地点比較</h2>
+            </div>
+          </div>
+          <div id="locationCompareCards" class="location-compare-grid"></div>
+        </section>
         <div id="verdictPanel" class="verdict-panel" hidden></div>
         <div id="nightSummary" class="night-summary" hidden></div>
         <div id="modelCards" class="model-grid"></div>
