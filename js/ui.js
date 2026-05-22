@@ -45,7 +45,7 @@
 
   function formatRecommendation(windowRange) {
     if (!windowRange) {
-      return "おすすめ時間帯を判定できません";
+      return "おすすめ時間帯なし";
     }
 
     return `${formatClock(windowRange.start)}〜${formatClock(windowRange.end)}`;
@@ -75,11 +75,18 @@
         </div>
       </div>
       <div class="verdict-copy">
-        <div>
-          <span class="eyebrow">おすすめ時間帯</span>
-          <strong class="recommendation">${formatRecommendation(assessment.recommendedWindow)}</strong>
+        <div class="verdict-metrics">
+          <div>
+            <span class="eyebrow">おすすめ時間帯</span>
+            <strong class="recommendation">${formatRecommendation(assessment.recommendedWindow)}</strong>
+          </div>
+          <div class="confidence-block" data-tone="${assessment.confidence.tone}">
+            <span class="eyebrow">信頼度</span>
+            <strong>${assessment.confidence.level}</strong>
+          </div>
         </div>
-        <p class="muted">モデル平均スコアが高い連続区間を選んでいます。</p>
+        <p class="muted">JMA と GFS の平均スコアが 70 点以上の連続区間だけをおすすめ候補にしています。</p>
+        <p class="muted">${assessment.confidence.note}</p>
         <div class="warning-row">${warnings}</div>
       </div>
     `;
@@ -111,7 +118,7 @@
 
   function renderNightSummary(assessment) {
     const scoreText = Number.isFinite(assessment.overallScore) ? assessment.overallScore : "--";
-    const modelCount = assessment.models.length;
+    const modelCount = assessment.ensembleModels.length;
     const validHours = assessment.hourlyConsensus.filter((row) => Number.isFinite(row.score)).length;
 
     elements.nightSummary.hidden = false;
@@ -119,14 +126,14 @@
       <div class="score-panel">
         <span class="eyebrow">総合スコア</span>
         <strong class="score-value">${scoreText}</strong>
-        <span class="muted">0 - 100</span>
+        <span class="muted">JMA / GFS 集計 0 - 100</span>
       </div>
       <div class="score-copy">
         <span class="score-badge" data-tone="${assessment.overallAssessment.tone}">
           ${assessment.overallAssessment.label}
         </span>
         <strong>${assessment.overallAssessment.note}</strong>
-        <p class="muted">${modelCount} 系列、${validHours} 時間の比較平均です。降水は強めに減点しています。</p>
+        <p class="muted">${modelCount} 系列、${validHours} 時間の比較平均です。Best Match は参考表示で集計には含めません。</p>
         ${renderCloudLayers(assessment)}
       </div>
     `;
@@ -143,6 +150,7 @@
             <div>
               <h3>${model.source.label}</h3>
               <p class="muted">${model.source.detail}</p>
+              ${model.isEnsemble ? "" : '<span class="reference-tag">参考表示</span>'}
             </div>
             <div class="model-score">
               <strong>${scoreText}</strong>
@@ -163,7 +171,7 @@
     const items = [
       ...cloudItems,
       {
-        label: "平均スコア",
+        label: "JMA / GFS 平均スコア",
         color: "#b56a16"
       }
     ];
@@ -201,6 +209,10 @@
             <td>${formatValue(row.dewPointSpread, 1)}</td>
             <td>${formatValue(row.precipitation, 1)}</td>
             <td class="row-score">${formatValue(row.score)}</td>
+            <td class="${row.modelDifferenceLabel ? "difference-alert" : ""}">
+              ${formatValue(row.modelDifference)}${Number.isFinite(row.modelDifference) ? "%" : ""}
+              ${row.modelDifferenceLabel ? `<span>${row.modelDifferenceLabel}</span>` : ""}
+            </td>
             <td>${row.warnings.length ? row.warnings.join(" / ") : "--"}</td>
           </tr>
         `

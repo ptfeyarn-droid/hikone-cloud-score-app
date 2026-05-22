@@ -1,4 +1,6 @@
 (function () {
+  const config = window.CloudAppConfig;
+
   function clamp(value, min, max) {
     return Math.min(max, Math.max(min, value));
   }
@@ -273,39 +275,38 @@
     return average(rows.map((row) => row.score));
   }
 
-  function getRecommendedWindow(hourlyConsensus) {
-    const validRows = hourlyConsensus.filter((row) => Number.isFinite(row.score));
-    if (!validRows.length) {
+  function getRecommendedWindow(hourlyConsensus, grade) {
+    if (!grade || grade.grade === "D" || grade.grade === "E") {
       return null;
     }
 
-    const bestScore = Math.max(...validRows.map((row) => row.score));
-    const preferredFloor = Math.max(60, bestScore - 10);
+    const recommendedRows = hourlyConsensus.filter((row) => Number.isFinite(row.score) && row.score >= 70);
+    if (!recommendedRows.length) {
+      return null;
+    }
+
     const candidates = [];
     let activeRange = [];
 
-    validRows.forEach((row, index) => {
-      const previous = validRows[index - 1];
+    recommendedRows.forEach((row, index) => {
+      const previous = recommendedRows[index - 1];
       const isContinuous = !previous || row.time === addOneHour(previous.time);
-      const isPreferred = row.score >= preferredFloor;
 
-      if (!isContinuous || !isPreferred) {
+      if (!isContinuous) {
         if (activeRange.length) {
           candidates.push(activeRange);
         }
         activeRange = [];
       }
 
-      if (isPreferred) {
-        activeRange.push(row);
-      }
+      activeRange.push(row);
     });
 
     if (activeRange.length) {
       candidates.push(activeRange);
     }
 
-    const rankedRanges = (candidates.length ? candidates : validRows.map((row) => [row]))
+    const rankedRanges = candidates
       .map((rows) => ({
         rows,
         averageScore: getRangeAverage(rows)
@@ -362,23 +363,152 @@
     return warnings;
   }
 
+  function getDisagreementLabel(difference) {
+    if (!Number.isFinite(difference)) {
+      return null;
+    }
+
+    if (difference >= 50) {
+      return "予報大きく不一致";
+    }
+
+    if (difference >= 30) {
+      return "予報割れ";
+    }
+
+    return null;
+  }
+
+  function mapRowsByTime(model) {
+    return new Map(model.rows.map((row) => [row.time, row]));
+  }
+
+  function summarizeModelDifference(models) {
+    const jma = models.find((model) => model.source.id === "jma");
+    const gfs = models.find((model) => model.source.id === "gfs");
+    const byTime = new Map();
+
+    if (!jma || !gfs) {
+      return {
+        byTime,
+        largeHours: 0,
+        splitHours: 0,
+        confidence: {
+          level: "低",
+          tone: "poor",
+          note: "JMA と GFS の比較データがそろっていません。"
+        }
+      };
+    }
+
+    const jmaRows = mapRowsByTime(jma);
+    const gfsRows = mapRowsByTime(gfs);
+    const sharedTimes = Array.from(jmaRows.keys()).filter((time) => gfsRows.has(time)).sort();
+    let largeHours = 0;
+    let splitHours = 0;
+
+    sharedTimes.forEach((time) => {
+      const jmaCloud = jmaRows.get(time).cloud_cover;
+      const gfsCloud = gfsRows.get(time).cloud_cover;
+      const difference = Number.isFinite(jmaCloud) && Number.isFinite(gfsCloud)
+        ? Math.abs(jmaCloud - gfsCloud)
+        : null;
+      const label = getDisagreementLabel(difference);
+
+      if (label === "予報大きく不一致") {
+        largeHours += 1;
+      } else if (label === "予報割れ") {
+        splitHours += 1;
+      }
+
+      byTime.set(time, {
+        difference,
+        label
+      });
+    });
+
+    if (largeHours) {
+      return {
+        byTime,
+        largeHours,
+        splitHours,
+        confidence: {
+          level: "低",
+          tone: "poor",
+          note: "JMA と GFS の総雲量差が 50% 以上の時間があります。"
+        }
+      };
+    }
+
+    if (splitHours) {
+      return {
+        byTime,
+        largeHours,
+        splitHours,
+        confidence: {
+          level: "中",
+          tone: "watch",
+          note: "JMA と GFS の総雲量差が 30% 以上の時間があります。"
+        }
+      };
+    }
+
+    return {
+      byTime,
+      largeHours,
+      splitHours,
+      confidence: {
+        level: "高",
+        tone: "good",
+        note: "JMA と GFS の総雲量差は小さめです。"
+      }
+    };
+  }
+
+  function addModelDifference(rows, modelDifference) {
+    return rows.map((row) => {
+      const disagreement = modelDifference.byTime.get(row.time);
+
+      return {
+        ...row,
+        modelDifference: disagreement ? disagreement.difference : null,
+        modelDifferenceLabel: disagreement ? disagreement.label : null
+      };
+    });
+  }
+
   function assessNight(apiResult) {
     const models = apiResult.models.map(summarizeModel);
-    const modelScores = models.map((model) => model.averageScore);
+    const ensembleModels = models.filter((model) => config.ensembleModels.includes(model.source.id));
+    const modelDifference = summarizeModelDifference(ensembleModels);
+    const modelsWithDifference = models.map((model) => ({
+      ...model,
+      isEnsemble: config.ensembleModels.includes(model.source.id),
+      rows: addModelDifference(model.rows, modelDifference)
+    }));
+    const ensembleModelsWithDifference = modelsWithDifference.filter((model) => model.isEnsemble);
+    const modelScores = ensembleModelsWithDifference.map((model) => model.averageScore);
     const overallAverage = average(modelScores);
     const overallScore = Number.isFinite(overallAverage) ? roundScore(overallAverage) : null;
-    const hourlyConsensus = summarizeByTime(models);
+    const overallGrade = gradeNight(overallAverage);
+    const hourlyConsensus = addModelDifference(
+      summarizeByTime(ensembleModelsWithDifference),
+      modelDifference
+    );
 
     return {
       ...apiResult,
-      models,
+      models: modelsWithDifference,
+      ensembleModels: ensembleModelsWithDifference,
       overallScore,
       overallAssessment: describeScore(overallAverage),
-      overallGrade: gradeNight(overallAverage),
+      overallGrade,
       hourlyConsensus,
-      recommendedWindow: getRecommendedWindow(hourlyConsensus),
+      recommendedWindow: getRecommendedWindow(hourlyConsensus, overallGrade),
       cloudLayers: summarizeCloudLayers(hourlyConsensus),
-      nightWarnings: summarizeWarnings(hourlyConsensus)
+      nightWarnings: summarizeWarnings(hourlyConsensus),
+      modelDifference,
+      confidence: modelDifference.confidence
     };
   }
 

@@ -16,11 +16,12 @@
       "dew_point_2m",
       "precipitation"
     ],
+    ensembleModels: ["jma", "gfs"],
     sources: [
       {
         id: "best_match",
         label: "Best Match",
-        detail: "Open-Meteo 自動選択",
+        detail: "Open-Meteo 自動選択 / 参考値",
         endpoint: "https://api.open-meteo.com/v1/forecast",
         color: "#1f7a62"
       },
