@@ -3,6 +3,7 @@
     refreshButton: document.getElementById("refreshButton"),
     nightWindow: document.getElementById("nightWindow"),
     statusMessage: document.getElementById("statusMessage"),
+    verdictPanel: document.getElementById("verdictPanel"),
     nightSummary: document.getElementById("nightSummary"),
     modelCards: document.getElementById("modelCards"),
     chart: document.getElementById("forecastChart"),
@@ -38,6 +39,76 @@
     return time.slice(5).replace("T", " ");
   }
 
+  function formatClock(time) {
+    return time.slice(11);
+  }
+
+  function formatRecommendation(windowRange) {
+    if (!windowRange) {
+      return "おすすめ時間帯を判定できません";
+    }
+
+    return `${formatClock(windowRange.start)}〜${formatClock(windowRange.end)}`;
+  }
+
+  function renderVerdict(assessment) {
+    const warnings = assessment.nightWarnings.length
+      ? assessment.nightWarnings
+          .map(
+            (warning) => `
+              <span class="warning-chip" data-kind="${warning.id}">
+                <strong>${warning.label}</strong>
+                ${warning.detail}
+              </span>
+            `
+          )
+          .join("")
+      : '<span class="clear-chip">目立つ注意フラグなし</span>';
+
+    elements.verdictPanel.hidden = false;
+    elements.verdictPanel.innerHTML = `
+      <div class="grade-block" data-tone="${assessment.overallGrade.tone}">
+        <span class="eyebrow">今夜の総合判定</span>
+        <div class="grade-line">
+          <strong>${assessment.overallGrade.grade}</strong>
+          <span>${assessment.overallGrade.label}</span>
+        </div>
+      </div>
+      <div class="verdict-copy">
+        <div>
+          <span class="eyebrow">おすすめ時間帯</span>
+          <strong class="recommendation">${formatRecommendation(assessment.recommendedWindow)}</strong>
+        </div>
+        <p class="muted">モデル平均スコアが高い連続区間を選んでいます。</p>
+        <div class="warning-row">${warnings}</div>
+      </div>
+    `;
+  }
+
+  function renderCloudLayers(assessment) {
+    const layers = [
+      { label: "総雲量", value: assessment.cloudLayers.total },
+      { label: "低層雲", value: assessment.cloudLayers.low },
+      { label: "中層雲", value: assessment.cloudLayers.mid },
+      { label: "高層雲", value: assessment.cloudLayers.high }
+    ];
+
+    return `
+      <div class="cloud-layer-grid" aria-label="雲量内訳">
+        ${layers
+          .map(
+            (layer) => `
+              <div class="cloud-layer">
+                <span>${layer.label}</span>
+                <strong>${formatValue(layer.value)}%</strong>
+              </div>
+            `
+          )
+          .join("")}
+      </div>
+    `;
+  }
+
   function renderNightSummary(assessment) {
     const scoreText = Number.isFinite(assessment.overallScore) ? assessment.overallScore : "--";
     const modelCount = assessment.models.length;
@@ -56,6 +127,7 @@
         </span>
         <strong>${assessment.overallAssessment.note}</strong>
         <p class="muted">${modelCount} 系列、${validHours} 時間の比較平均です。降水は強めに減点しています。</p>
+        ${renderCloudLayers(assessment)}
       </div>
     `;
   }
@@ -123,10 +195,13 @@
             <td>${formatValue(row.cloud_cover_low)}</td>
             <td>${formatValue(row.cloud_cover_mid)}</td>
             <td>${formatValue(row.cloud_cover_high)}</td>
+            <td>${formatValue(row.temperature_2m, 1)}</td>
             <td>${formatValue(row.relative_humidity_2m)}</td>
             <td>${formatValue(row.dew_point_2m, 1)}</td>
+            <td>${formatValue(row.dewPointSpread, 1)}</td>
             <td>${formatValue(row.precipitation, 1)}</td>
             <td class="row-score">${formatValue(row.score)}</td>
+            <td>${row.warnings.length ? row.warnings.join(" / ") : "--"}</td>
           </tr>
         `
       )
@@ -253,6 +328,7 @@
 
   function renderForecast(assessment) {
     lastAssessment = assessment;
+    renderVerdict(assessment);
     renderNightSummary(assessment);
     renderModelCards(assessment);
     renderLegend(assessment);

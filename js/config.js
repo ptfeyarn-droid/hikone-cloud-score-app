@@ -11,6 +11,7 @@
       "cloud_cover_low",
       "cloud_cover_mid",
       "cloud_cover_high",
+      "temperature_2m",
       "relative_humidity_2m",
       "dew_point_2m",
       "precipitation"
