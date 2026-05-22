@@ -2,7 +2,7 @@
 <html lang="ja">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>彦根 星撮り雲量スコア</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
@@ -59,7 +59,7 @@
           </div>
           <p class="muted">雲量、モデル差、湿度は %, 露点差は deg C</p>
         </div>
-        <div class="table-shell">
+        <div class="table-shell table-wrapper">
           <table>
             <thead>
               <tr>
@@ -78,6 +78,16 @@
             <tbody id="forecastRows"></tbody>
           </table>
         </div>
+      </section>
+
+      <section class="mobile-model-band" aria-labelledby="mobileModelsTitle">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">モデル参考</p>
+            <h2 id="mobileModelsTitle">モデル別カード</h2>
+          </div>
+        </div>
+        <div id="mobileModelCards" class="model-grid mobile-model-grid"></div>
       </section>
     </main>
 

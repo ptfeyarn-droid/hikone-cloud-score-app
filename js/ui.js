@@ -6,6 +6,7 @@
     verdictPanel: document.getElementById("verdictPanel"),
     nightSummary: document.getElementById("nightSummary"),
     modelCards: document.getElementById("modelCards"),
+    mobileModelCards: document.getElementById("mobileModelCards"),
     chart: document.getElementById("forecastChart"),
     chartLegend: document.getElementById("chartLegend"),
     forecastRows: document.getElementById("forecastRows")
@@ -51,12 +52,26 @@
     return `${formatClock(windowRange.start)}〜${formatClock(windowRange.end)}`;
   }
 
+  function formatGambleWindow(windowRange) {
+    if (!windowRange) {
+      return "賭け候補なし";
+    }
+
+    return `${formatClock(windowRange.start)}〜${formatClock(windowRange.end)}`;
+  }
+
   function renderVerdict(assessment) {
     const lowConfidenceCallout = (
       (assessment.overallGrade.grade === "D" || assessment.overallGrade.grade === "E") &&
       assessment.confidence.level === "低"
     )
       ? '<span class="warning-chip urgent-callout"><strong>直前の空・衛星画像確認推奨</strong></span>'
+      : "";
+    const nearFieldCallout = (
+      (assessment.overallGrade.grade === "D" || assessment.overallGrade.grade === "E") &&
+      assessment.gambleWindow
+    )
+      ? '<span class="warning-chip near-field-callout"><strong>遠征は非推奨。ただし自宅・近場なら直前確認の価値あり</strong></span>'
       : "";
     const warnings = assessment.nightWarnings.length
       ? assessment.nightWarnings
@@ -79,26 +94,36 @@
           <strong>${assessment.overallGrade.grade}</strong>
           <span>${assessment.overallGrade.label}</span>
         </div>
+        <div class="mobile-score-inline">
+          <span class="eyebrow">総合スコア</span>
+          <strong>${Number.isFinite(assessment.overallScore) ? assessment.overallScore : "--"}</strong>
+          <span>JMA / GFS 集計</span>
+        </div>
       </div>
       <div class="verdict-copy">
         <div class="verdict-metrics">
-          <div>
+          <div class="window-metric">
             <span class="eyebrow">おすすめ時間帯</span>
             <strong class="recommendation">${formatRecommendation(assessment.recommendedWindow)}</strong>
+          </div>
+          <div class="window-metric gamble-metric">
+            <span class="eyebrow">賭け候補時間帯</span>
+            <strong class="recommendation">${formatGambleWindow(assessment.gambleWindow)}</strong>
+            <span class="muted">${assessment.gambleWindow ? `理由: ${assessment.gambleWindow.reason}` : "片方のモデルだけ良い時間はありません。"}</span>
           </div>
           <div class="confidence-block" data-tone="${assessment.confidence.tone}">
             <span class="eyebrow">信頼度</span>
             <strong>${assessment.confidence.level}</strong>
             <div class="difference-summary">
               <span>最大差 <strong>${formatValue(assessment.modelDifference.maxDifference)}${Number.isFinite(assessment.modelDifference.maxDifference) ? "%" : ""}</strong></span>
-              <span>予報割れ <strong>${assessment.modelDifference.splitHours + assessment.modelDifference.largeHours} 時間</strong></span>
+              <span>予報割れ <strong>${assessment.modelDifference.splitTotal} 時間</strong></span>
               <span>最大差時刻 <strong>${assessment.modelDifference.maxDifferenceTime ? formatHour(assessment.modelDifference.maxDifferenceTime) : "--"}</strong></span>
             </div>
           </div>
         </div>
         <p class="muted">JMA と GFS の平均スコアが 70 点以上の連続区間だけをおすすめ候補にしています。</p>
         <p class="muted">${assessment.confidence.note}</p>
-        <div class="warning-row">${warnings}${lowConfidenceCallout}</div>
+        <div class="warning-row">${warnings}${lowConfidenceCallout}${nearFieldCallout}</div>
       </div>
     `;
   }
@@ -151,7 +176,7 @@
   }
 
   function renderModelCards(assessment) {
-    elements.modelCards.innerHTML = assessment.models
+    const cards = assessment.models
       .map((model) => {
         const scoreText = Number.isFinite(model.averageScore) ? model.averageScore : "--";
         const bestHour = model.bestRow ? formatHour(model.bestRow.time) : "--";
@@ -172,6 +197,9 @@
         `;
       })
       .join("");
+
+    elements.modelCards.innerHTML = cards;
+    elements.mobileModelCards.innerHTML = cards;
   }
 
   function renderLegend(assessment) {
@@ -298,9 +326,10 @@
     context.save();
     context.fillStyle = "#5c655e";
     context.font = '12px "Segoe UI", sans-serif';
+    const labelStep = plot.width < 340 ? 4 : plot.width < 520 ? 3 : 2;
 
     times.forEach((time, index) => {
-      const showLabel = index === 0 || index === times.length - 1 || index % 2 === 0;
+      const showLabel = index === 0 || index === times.length - 1 || index % labelStep === 0;
       if (!showLabel) {
         return;
       }
