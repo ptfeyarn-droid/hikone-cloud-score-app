@@ -132,7 +132,7 @@
               <div><dt>最大差</dt><dd>${formatValue(assessment.modelDifference.maxDifference)}${Number.isFinite(assessment.modelDifference.maxDifference) ? "%" : ""}</dd></div>
               <div><dt>主な注意</dt><dd>${getPrimaryWarning(assessment)}</dd></div>
             </dl>
-            <a class="astro-app-link" href="${buildAstroAppUrl(item.location)}">
+            <a class="astro-app-link" href="${buildAstroAppUrl(item.location, assessment)}">
               この地点で天文条件を見る
             </a>
           </article>

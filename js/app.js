@@ -34,15 +34,38 @@
     return findLocation(getStoredLocationId()) || findLocation(config.defaultLocationId) || config.locations[0];
   }
 
-  function buildAstroAppUrl(site) {
+  function formatWindowForUrl(windowRange) {
+    if (!windowRange) {
+      return "";
+    }
+
+    return `${windowRange.start.slice(11)}-${windowRange.end.slice(11)}`;
+  }
+
+  function setOptionalParam(params, name, value) {
+    if (value === null || value === undefined || value === "") {
+      return;
+    }
+
+    params.set(name, value);
+  }
+
+  function buildAstroAppUrl(site, summary = {}) {
     const url = new URL(config.astroAppUrl);
-    url.searchParams.set("site", site.name);
-    url.searchParams.set("lat", site.latitude);
-    url.searchParams.set("lon", site.longitude);
-    url.searchParams.set("elev", site.elevation);
-    url.searchParams.set("date", api.getTokyoDateKey());
-    url.searchParams.set("time", "21:00");
-    url.searchParams.set("return", window.location.href);
+    const params = new URLSearchParams();
+    params.set("site", site.name);
+    params.set("lat", site.latitude);
+    params.set("lon", site.longitude);
+    params.set("elev", site.elevation);
+    params.set("date", api.getTokyoDateKey());
+    params.set("time", "21:00");
+    params.set("return", window.location.href);
+    setOptionalParam(params, "cloudScore", summary.overallScore);
+    setOptionalParam(params, "cloudGrade", summary.overallGrade && summary.overallGrade.grade);
+    setOptionalParam(params, "reliability", summary.confidence && summary.confidence.level);
+    setOptionalParam(params, "bestWindow", formatWindowForUrl(summary.recommendedWindow));
+    setOptionalParam(params, "gambleWindow", formatWindowForUrl(summary.gambleWindow));
+    url.search = params.toString();
     return url.toString();
   }
 
@@ -61,7 +84,7 @@
       }
 
       const assessment = scoring.assessNight(apiResult);
-      ui.renderForecast(assessment, buildAstroAppUrl(apiResult.location));
+      ui.renderForecast(assessment, buildAstroAppUrl(apiResult.location, assessment));
 
       if (apiResult.errors.length) {
         const failedLabels = apiResult.errors.map((error) => error.source.label).join(", ");

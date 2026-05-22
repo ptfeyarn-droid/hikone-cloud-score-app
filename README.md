@@ -8,7 +8,7 @@
 
 `index.html` をブラウザで開くと、Open-Meteo から今夜 18:00 から翌朝 06:00 までの hourly 予報を取得します。
 
-- 地点: 彦根市、多賀町、米原市、長浜市、余呉、鈴鹿山麓候補地から選択
+- 地点: 登録済み 12 地点から選択
 - 取得モデル: Open-Meteo Best Match、JMA、GFS
 - 表示: A-E 総合判定、おすすめ時間帯、賭け候補時間帯、モデル別スコア、雲量折れ線グラフ、時系列テーブル
 - 取得項目: `cloud_cover`, `cloud_cover_low`, `cloud_cover_mid`, `cloud_cover_high`, `temperature_2m`, `relative_humidity_2m`, `dew_point_2m`, `precipitation`
@@ -62,6 +62,21 @@ Best Match は上部カードとグラフで見る参考表示です。判断主
 
 最後に選んだ地点 ID はブラウザの `localStorage` に保存され、次回起動時に復元されます。
 
+### 登録地点一覧
+
+- 彦根市
+- 多賀町
+- 米原市
+- 長浜市
+- 余呉
+- 鈴鹿山麓候補地
+- 越前海岸
+- おおい町 名田庄
+- 上石津町
+- 永源寺ダム
+- 青土ダム
+- 御杖村
+
 ## 天文アプリ連携
 
 選択地点の詳細と地点比較カードには `この地点で天文条件を見る` ボタンがあります。ボタンは公開済みの `hikone-astro-app` を開き、次の URL パラメータで撮影地を渡します。
@@ -73,8 +88,13 @@ Best Match は上部カードとグラフで見る参考表示です。判断主
 - `date`: 日本時間の評価日 `YYYY-MM-DD`
 - `time`: 初期時刻 `21:00`
 - `return`: 雲量アプリの現在 URL
+- `cloudScore`: 雲量スコア
+- `cloudGrade`: 総合判定 A-E
+- `reliability`: 信頼度
+- `bestWindow`: おすすめ時間帯
+- `gambleWindow`: 賭け候補時間帯
 
-日付は UTC 変換を使わず、日本時間の日付で渡します。
+URL は `URLSearchParams` で生成し、日付は UTC 変換を使わず日本時間の日付で渡します。
 
 ## 地点比較
 

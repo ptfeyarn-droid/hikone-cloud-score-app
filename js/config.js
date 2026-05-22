@@ -45,6 +45,48 @@
         latitude: 35.235,
         longitude: 136.34,
         elevation: 320
+      },
+      {
+        id: "echizen-coast",
+        name: "越前海岸",
+        latitude: 35.982582,
+        longitude: 135.958589,
+        elevation: 30
+      },
+      {
+        id: "oi-natasho",
+        name: "おおい町 名田庄",
+        latitude: 35.394665,
+        longitude: 135.584363,
+        elevation: 210
+      },
+      {
+        id: "kamiishizu",
+        name: "上石津町",
+        latitude: 35.2591873,
+        longitude: 136.4714183,
+        elevation: 180
+      },
+      {
+        id: "eigenji-dam",
+        name: "永源寺ダム",
+        latitude: 35.07530946,
+        longitude: 136.33362386,
+        elevation: 278
+      },
+      {
+        id: "ozuchi-dam",
+        name: "青土ダム",
+        latitude: 34.95778032,
+        longitude: 136.30369742,
+        elevation: 295
+      },
+      {
+        id: "mitsue",
+        name: "御杖村",
+        latitude: 34.488391,
+        longitude: 136.16591,
+        elevation: 520
       }
     ],
     hourlyFields: [
