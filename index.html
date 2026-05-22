@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>彦根 星撮り雲量スコア</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand-block">
+        <p class="eyebrow">Hikone Astrophotography Helper</p>
+        <h1>彦根 星撮り雲量スコア</h1>
+      </div>
+      <button id="refreshButton" class="refresh-button" type="button" aria-label="予報を再取得">
+        <span aria-hidden="true">&#8635;</span>
+        再取得
+      </button>
+    </header>
+
+    <main>
+      <section class="overview-band" aria-labelledby="nightTitle">
+        <div>
+          <p class="eyebrow">固定地点</p>
+          <h2 id="nightTitle">滋賀県彦根市</h2>
+          <p id="nightWindow" class="muted">今夜枠を計算中...</p>
+        </div>
+        <div class="notice">
+          <strong>個人用の撮影判断補助</strong>
+          <p>公開データを見比べる補助画面です。気象予報業務や安全判断の代替には使わないでください。</p>
+        </div>
+      </section>
+
+      <section class="summary-band" aria-live="polite">
+        <div id="statusMessage" class="status-message" role="status">Open-Meteo から夜間データを取得しています...</div>
+        <div id="nightSummary" class="night-summary" hidden></div>
+        <div id="modelCards" class="model-grid"></div>
+      </section>
+
+      <section class="chart-band" aria-labelledby="chartTitle">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">夜間推移</p>
+            <h2 id="chartTitle">雲量と撮影スコア</h2>
+          </div>
+          <div id="chartLegend" class="legend"></div>
+        </div>
+        <div class="chart-shell">
+          <canvas id="forecastChart" height="360" aria-label="モデル別雲量と総合スコアの折れ線グラフ"></canvas>
+        </div>
+      </section>
+
+      <section class="table-band" aria-labelledby="tableTitle">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">時系列テーブル</p>
+            <h2 id="tableTitle">hourly 予報</h2>
+          </div>
+          <p class="muted">雲量は %, 降水は mm, 露点は deg C</p>
+        </div>
+        <div class="table-shell">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">時刻</th>
+                <th scope="col">モデル</th>
+                <th scope="col">総雲量</th>
+                <th scope="col">低層</th>
+                <th scope="col">中層</th>
+                <th scope="col">高層</th>
+                <th scope="col">湿度</th>
+                <th scope="col">露点</th>
+                <th scope="col">降水</th>
+                <th scope="col">スコア</th>
+              </tr>
+            </thead>
+            <tbody id="forecastRows"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <footer class="source-band">
+      <div>
+        <p class="eyebrow">データ出典</p>
+        <p>
+          気象データ:
+          <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a>
+          の Weather Forecast / JMA / GFS API。
+        </p>
+      </div>
+      <p class="muted">初版はブラウザから直接取得します。取得失敗時はネットワーク状態と API 応答を確認してください。</p>
+    </footer>
+
+    <script src="./js/config.js"></script>
+    <script src="./js/api.js"></script>
+    <script src="./js/scoring.js"></script>
+    <script src="./js/ui.js"></script>
+    <script src="./js/app.js"></script>
+  </body>
+</html>
