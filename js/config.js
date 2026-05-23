@@ -2,6 +2,10 @@
   window.CloudAppConfig = {
     timezone: "Asia/Tokyo",
     astroAppUrl: "https://ptfeyarn-droid.github.io/hikone-astro-app/",
+    externalWeatherUrls: {
+      scw: "https://supercweather.com/",
+      gpv: "https://www.gpvweather.com/map.php"
+    },
     defaultLocationId: "hikone",
     locations: [
       {

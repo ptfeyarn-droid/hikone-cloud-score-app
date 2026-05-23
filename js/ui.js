@@ -19,7 +19,7 @@
 
   let lastAssessment = null;
   let lastComparisons = [];
-  let lastAstroUrlBuilder = null;
+  let lastLinkBuilders = null;
 
   function setLoading(isLoading) {
     elements.refreshButton.disabled = isLoading;
@@ -53,7 +53,7 @@
     elements.locationSelect.value = location.id;
 
     if (lastComparisons.length) {
-      renderLocationComparison(lastComparisons, location.id, lastAstroUrlBuilder);
+      renderLocationComparison(lastComparisons, location.id, lastLinkBuilders);
     }
   }
 
@@ -76,6 +76,14 @@
 
   function formatClock(time) {
     return time.slice(11);
+  }
+
+  function escapeAttribute(value) {
+    return String(value)
+      .replace(/&/g, "&amp;")
+      .replace(/"/g, "&quot;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
   }
 
   function formatRecommendation(windowRange) {
@@ -106,14 +114,17 @@
     return "目立つ注意なし";
   }
 
-  function renderLocationComparison(comparisons, selectedLocationId, buildAstroAppUrl) {
+  function renderLocationComparison(comparisons, selectedLocationId, linkBuilders) {
     lastComparisons = comparisons;
-    lastAstroUrlBuilder = buildAstroAppUrl;
+    lastLinkBuilders = linkBuilders;
     elements.locationCompare.hidden = false;
     elements.locationCompareCards.innerHTML = comparisons
       .map((item) => {
         const assessment = item.assessment;
         const isSelected = item.location.id === selectedLocationId;
+        const astroUrl = escapeAttribute(linkBuilders.astro(item.location, assessment));
+        const scwUrl = escapeAttribute(linkBuilders.scw(item.location));
+        const gpvUrl = escapeAttribute(linkBuilders.gpv(item.location));
 
         return `
           <article class="location-compare-card ${isSelected ? "is-selected" : ""}">
@@ -132,7 +143,15 @@
               <div><dt>最大差</dt><dd>${formatValue(assessment.modelDifference.maxDifference)}${Number.isFinite(assessment.modelDifference.maxDifference) ? "%" : ""}</dd></div>
               <div><dt>主な注意</dt><dd>${getPrimaryWarning(assessment)}</dd></div>
             </dl>
-            <a class="astro-app-link" href="${buildAstroAppUrl(item.location, assessment)}">
+            <div class="compare-external-links" aria-label="${item.location.name}の外部確認リンク">
+              <button class="external-weather-link compact" type="button" data-external-weather-url="${scwUrl}">
+                SCW
+              </button>
+              <button class="external-weather-link compact" type="button" data-external-weather-url="${gpvUrl}">
+                GPV
+              </button>
+            </div>
+            <a class="astro-app-link" href="${astroUrl}">
               この地点で天文条件を見る
             </a>
           </article>
@@ -451,28 +470,36 @@
     });
   }
 
-  function renderForecast(assessment, astroAppUrl) {
+  function renderForecast(assessment, externalLinks) {
     lastAssessment = assessment;
     renderVerdict(assessment);
     renderNightSummary(assessment);
-    renderAstroAppLink(astroAppUrl);
+    renderExternalLinks(externalLinks);
     renderModelCards(assessment);
     renderLegend(assessment);
     renderRows(assessment);
     drawChart(assessment);
   }
 
-  function renderAstroAppLink(astroAppUrl) {
-    if (!astroAppUrl) {
+  function renderExternalLinks(externalLinks) {
+    if (!externalLinks) {
       return;
     }
 
-    const button = `
-      <a class="astro-app-link detail-astro-link" href="${astroAppUrl}">
-        この地点で天文条件を見る
-      </a>
+    const links = `
+      <div class="detail-link-group">
+        <a class="astro-app-link" href="${escapeAttribute(externalLinks.astroAppUrl)}">
+          この地点で天文条件を見る
+        </a>
+        <button class="external-weather-link" type="button" data-external-weather-url="${escapeAttribute(externalLinks.scwUrl)}">
+          SCWで確認
+        </button>
+        <button class="external-weather-link" type="button" data-external-weather-url="${escapeAttribute(externalLinks.gpvUrl)}">
+          GPVで確認
+        </button>
+      </div>
     `;
-    elements.verdictPanel.insertAdjacentHTML("beforeend", button);
+    elements.verdictPanel.insertAdjacentHTML("beforeend", links);
   }
 
   function redrawChart() {

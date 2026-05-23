@@ -69,6 +69,39 @@
     return url.toString();
   }
 
+  function setSiteParams(url, site) {
+    url.searchParams.set("site", site.name);
+    url.searchParams.set("lat", site.latitude);
+    url.searchParams.set("lon", site.longitude);
+    url.searchParams.set("zoom", "9");
+    return url.toString();
+  }
+
+  function buildScwUrl(site) {
+    return setSiteParams(new URL(config.externalWeatherUrls.scw), site);
+  }
+
+  function buildGpvUrl(site) {
+    return setSiteParams(new URL(config.externalWeatherUrls.gpv), site);
+  }
+
+  function getLinkBuilders() {
+    return {
+      astro: buildAstroAppUrl,
+      scw: buildScwUrl,
+      gpv: buildGpvUrl
+    };
+  }
+
+  function openExternalWeatherLink(event) {
+    const button = event.target.closest("[data-external-weather-url]");
+    if (!button) {
+      return;
+    }
+
+    window.open(button.dataset.externalWeatherUrl, "_blank", "noopener,noreferrer");
+  }
+
   async function refreshForecast() {
     ui.setLoading(true);
     ui.setStatus(`${selectedLocation.name} の夜間データを Open-Meteo から取得しています...`);
@@ -84,7 +117,11 @@
       }
 
       const assessment = scoring.assessNight(apiResult);
-      ui.renderForecast(assessment, buildAstroAppUrl(apiResult.location, assessment));
+      ui.renderForecast(assessment, {
+        astroAppUrl: buildAstroAppUrl(apiResult.location, assessment),
+        scwUrl: buildScwUrl(apiResult.location),
+        gpvUrl: buildGpvUrl(apiResult.location)
+      });
 
       if (apiResult.errors.length) {
         const failedLabels = apiResult.errors.map((error) => error.source.label).join(", ");
@@ -131,7 +168,7 @@
       }
 
       comparisons.sort(compareByScore);
-      ui.renderLocationComparison(comparisons, selectedLocation.id, buildAstroAppUrl);
+      ui.renderLocationComparison(comparisons, selectedLocation.id, getLinkBuilders());
 
       if (failures.length) {
         ui.setStatus(`地点比較を更新しました。一部失敗: ${failures.join(" / ")}`, "partial");
@@ -177,6 +214,7 @@
   compareButton.addEventListener("click", compareLocations);
   locationSelect.addEventListener("change", changeLocation);
   locationCompareCards.addEventListener("click", switchFromComparison);
+  document.addEventListener("click", openExternalWeatherLink);
   window.addEventListener("resize", ui.redrawChart);
   ui.renderLocationOptions(config.locations, selectedLocation.id);
   ui.setLocation(selectedLocation);
@@ -184,6 +222,8 @@
   refreshForecast();
 
   window.CloudAppLinks = {
-    buildAstroAppUrl
+    buildAstroAppUrl,
+    buildScwUrl,
+    buildGpvUrl
   };
 })();

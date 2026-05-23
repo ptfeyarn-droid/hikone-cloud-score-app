@@ -178,9 +178,39 @@ main {
   text-decoration: none;
 }
 
-.detail-astro-link {
-  align-self: stretch;
+.detail-link-group {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
   margin-top: 10px;
+}
+
+.external-weather-link {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--blue);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: var(--blue);
+  background: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.compare-external-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.external-weather-link.compact {
+  min-height: 34px;
+  padding: 6px 10px;
+  font-size: 0.82rem;
 }
 
 .notice {
@@ -902,6 +932,15 @@ tbody tr:hover {
   .astro-app-link {
     width: 100%;
     min-height: 48px;
+  }
+
+  .detail-link-group,
+  .external-weather-link {
+    width: 100%;
+  }
+
+  .compare-external-links .external-weather-link {
+    width: auto;
   }
 
   .location-compare {
