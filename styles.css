@@ -131,13 +131,17 @@ main {
   margin-bottom: 10px;
 }
 
-.location-picker span {
+.location-picker span,
+.date-picker span {
   color: var(--muted);
   font-size: 0.88rem;
   font-weight: 700;
 }
 
-.location-picker select {
+.location-picker select,
+.date-picker select,
+.date-picker input {
+  width: 100%;
   min-height: 44px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -145,6 +149,24 @@ main {
   color: var(--ink);
   background: #fff;
   font: inherit;
+}
+
+.date-picker {
+  width: min(100%, 480px);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+  align-items: end;
+  margin-bottom: 10px;
+}
+
+.date-picker label {
+  display: grid;
+  gap: 6px;
+}
+
+.custom-date-label[hidden] {
+  display: none;
 }
 
 .compare-button {
@@ -920,7 +942,16 @@ tbody tr:hover {
     margin-bottom: 8px;
   }
 
-  .location-picker select {
+  .date-picker {
+    width: 100%;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .location-picker select,
+  .date-picker select,
+  .date-picker input {
     min-height: 48px;
   }
 

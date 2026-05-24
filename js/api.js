@@ -36,17 +36,41 @@
     };
   }
 
-  function getTonightWindow(referenceDate = new Date()) {
+  function parseDateKey(dateKey) {
+    const [year, month, day] = dateKey.split("-").map(Number);
+
+    return { year, month, day };
+  }
+
+  function getDateKeyForOffset(offset = 0, referenceDate = new Date()) {
     const today = getTokyoDateParts(referenceDate);
-    const tomorrow = addDays(today, 1);
-    const startDate = formatDateKey(today);
+    return formatDateKey(addDays(today, offset));
+  }
+
+  function getOffsetForDateKey(dateKey, referenceDate = new Date()) {
+    const today = getTokyoDateParts(referenceDate);
+    const target = parseDateKey(dateKey);
+    const todayTime = Date.UTC(today.year, today.month - 1, today.day);
+    const targetTime = Date.UTC(target.year, target.month - 1, target.day);
+    return Math.round((targetTime - todayTime) / 86400000);
+  }
+
+  function getNightWindow(dateSelection = {}, referenceDate = new Date()) {
+    const startDate = dateSelection.dateKey || getDateKeyForOffset(dateSelection.offset || 0, referenceDate);
+    const startParts = parseDateKey(startDate);
+    const tomorrow = addDays(startParts, 1);
     const endDate = formatDateKey(tomorrow);
 
     return {
       start: `${startDate}T18:00`,
       end: `${endDate}T06:00`,
+      dateKey: startDate,
       label: `${startDate} 18:00 - ${endDate} 06:00`
     };
+  }
+
+  function getTonightWindow(referenceDate = new Date()) {
+    return getNightWindow({ offset: 0 }, referenceDate);
   }
 
   function getTokyoDateKey(referenceDate = new Date()) {
@@ -58,7 +82,7 @@
     url.searchParams.set("latitude", location.latitude);
     url.searchParams.set("longitude", location.longitude);
     url.searchParams.set("timezone", config.timezone);
-    url.searchParams.set("forecast_days", "2");
+    url.searchParams.set("forecast_days", "7");
     url.searchParams.set("hourly", config.hourlyFields.join(","));
     return url.toString();
   }
@@ -107,8 +131,8 @@
     };
   }
 
-  async function fetchNightForecasts(location) {
-    const windowRange = getTonightWindow();
+  async function fetchNightForecasts(location, dateSelection = {}) {
+    const windowRange = getNightWindow(dateSelection);
     const settled = await Promise.allSettled(
       config.sources.map((source) => fetchSource(source, windowRange, location))
     );
@@ -137,7 +161,10 @@
 
   window.CloudAppApi = {
     fetchNightForecasts,
+    getNightWindow,
     getTonightWindow,
+    getDateKeyForOffset,
+    getOffsetForDateKey,
     getTokyoDateKey
   };
 })();

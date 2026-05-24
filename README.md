@@ -6,12 +6,15 @@
 
 ## 使い方
 
-`index.html` をブラウザで開くと、Open-Meteo から今夜 18:00 から翌朝 06:00 までの hourly 予報を取得します。
+`index.html` をブラウザで開くと、Open-Meteo から選択した評価日の 18:00 から翌朝 06:00 までの hourly 予報を取得します。
 
 - 地点: 登録済み 12 地点から選択
+- 評価日: 今日の夜、明日の夜、明後日の夜、日付指定から選択
 - 取得モデル: Open-Meteo Best Match、JMA、GFS
 - 表示: A-E 総合判定、おすすめ時間帯、賭け候補時間帯、モデル別スコア、雲量折れ線グラフ、時系列テーブル
 - 取得項目: `cloud_cover`, `cloud_cover_low`, `cloud_cover_mid`, `cloud_cover_high`, `temperature_2m`, `relative_humidity_2m`, `dew_point_2m`, `precipitation`
+
+評価日を切り替えると、対象夜間は選択日の 18:00 から翌朝 06:00 に変わります。`全地点を比較` も現在選ばれている評価日で実行され、天文アプリ連携の `date` パラメータにも選択中の夜の日付を渡します。
 
 ## iPhone で確認
 

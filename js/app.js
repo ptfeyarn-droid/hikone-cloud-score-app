@@ -6,9 +6,21 @@
   const refreshButton = document.getElementById("refreshButton");
   const compareButton = document.getElementById("compareButton");
   const locationSelect = document.getElementById("locationSelect");
+  const dateModeSelect = document.getElementById("dateModeSelect");
+  const customDateInput = document.getElementById("customDateInput");
   const locationCompareCards = document.getElementById("locationCompareCards");
   const STORAGE_KEY = "hikone-cloud-score-location";
+  const DATE_MODE_STORAGE_KEY = "hikone-cloud-score-date-mode";
+  const DATE_MODES = [
+    { id: "today", label: "今日の夜", offset: 0 },
+    { id: "tomorrow", label: "明日の夜", offset: 1 },
+    { id: "day-after-tomorrow", label: "明後日の夜", offset: 2 },
+    { id: "custom", label: "日付指定", offset: null }
+  ];
   let selectedLocation = getInitialLocation();
+  let selectedDateMode = getInitialDateMode();
+  let customDateKey = api.getDateKeyForOffset(0);
+  let selectedDateOffset = getSelectedDateOffset();
 
   function getStoredLocationId() {
     try {
@@ -26,12 +38,73 @@
     }
   }
 
+  function getStoredDateMode() {
+    try {
+      return window.localStorage.getItem(DATE_MODE_STORAGE_KEY);
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function storeDateMode(dateMode) {
+    try {
+      if (dateMode === "custom") {
+        window.localStorage.removeItem(DATE_MODE_STORAGE_KEY);
+        return;
+      }
+
+      window.localStorage.setItem(DATE_MODE_STORAGE_KEY, dateMode);
+    } catch (error) {
+      // localStorage can be unavailable in restricted browser modes.
+    }
+  }
+
   function findLocation(locationId) {
     return config.locations.find((location) => location.id === locationId);
   }
 
   function getInitialLocation() {
     return findLocation(getStoredLocationId()) || findLocation(config.defaultLocationId) || config.locations[0];
+  }
+
+  function findDateMode(dateModeId) {
+    return DATE_MODES.find((dateMode) => dateMode.id === dateModeId);
+  }
+
+  function getInitialDateMode() {
+    const storedMode = getStoredDateMode();
+    return findDateMode(storedMode) && storedMode !== "custom" ? storedMode : "today";
+  }
+
+  function getSelectedDateOffset() {
+    if (selectedDateMode === "custom") {
+      return api.getOffsetForDateKey(customDateKey);
+    }
+
+    return findDateMode(selectedDateMode).offset;
+  }
+
+  function getDateSelection() {
+    if (selectedDateMode === "custom") {
+      selectedDateOffset = api.getOffsetForDateKey(customDateKey);
+      return { dateKey: customDateKey };
+    }
+
+    selectedDateOffset = getSelectedDateOffset();
+    return { offset: selectedDateOffset };
+  }
+
+  function getSelectedNightWindow() {
+    return api.getNightWindow(getDateSelection());
+  }
+
+  function syncDateControls() {
+    ui.setDateControls(
+      selectedDateMode,
+      selectedDateMode === "custom" ? customDateKey : api.getDateKeyForOffset(selectedDateOffset),
+      api.getDateKeyForOffset(0),
+      api.getDateKeyForOffset(5)
+    );
   }
 
   function formatWindowForUrl(windowRange) {
@@ -57,7 +130,7 @@
     params.set("lat", site.latitude);
     params.set("lon", site.longitude);
     params.set("elev", site.elevation);
-    params.set("date", api.getTokyoDateKey());
+    params.set("date", getSelectedNightWindow().dateKey);
     params.set("time", "21:00");
     params.set("return", window.location.href);
     setOptionalParam(params, "cloudScore", summary.overallScore);
@@ -104,10 +177,12 @@
 
   async function refreshForecast() {
     ui.setLoading(true);
-    ui.setStatus(`${selectedLocation.name} の夜間データを Open-Meteo から取得しています...`);
+    const dateSelection = getDateSelection();
+    const windowRange = api.getNightWindow(dateSelection);
+    ui.setStatus(`${selectedLocation.name} の ${windowRange.label} を Open-Meteo から取得しています...`);
 
     try {
-      const apiResult = await api.fetchNightForecasts(selectedLocation);
+      const apiResult = await api.fetchNightForecasts(selectedLocation, dateSelection);
       ui.setWindowLabel(apiResult.windowRange);
       ui.setLocation(apiResult.location);
 
@@ -144,7 +219,9 @@
 
   async function compareLocations() {
     ui.setCompareLoading(true);
-    ui.setStatus("全地点の比較データを順番に取得しています...");
+    const dateSelection = getDateSelection();
+    const windowRange = api.getNightWindow(dateSelection);
+    ui.setStatus(`全地点の ${windowRange.label} 比較データを順番に取得しています...`);
 
     const comparisons = [];
     const failures = [];
@@ -152,8 +229,8 @@
     try {
       for (const location of config.locations) {
         try {
-          ui.setStatus(`${location.name} を比較用に取得しています...`);
-          const apiResult = await api.fetchNightForecasts(location);
+          ui.setStatus(`${location.name} の ${windowRange.label} を比較用に取得しています...`);
+          const apiResult = await api.fetchNightForecasts(location, dateSelection);
           if (!apiResult.models.length) {
             throw new Error("モデル別データがありません。");
           }
@@ -201,6 +278,42 @@
     selectLocation(nextLocation.id);
   }
 
+  function changeDateMode(event) {
+    const nextMode = event.target.value;
+    if (!findDateMode(nextMode) || nextMode === selectedDateMode) {
+      return;
+    }
+
+    selectedDateMode = nextMode;
+    if (selectedDateMode !== "custom") {
+      selectedDateOffset = getSelectedDateOffset();
+      storeDateMode(selectedDateMode);
+    } else {
+      storeDateMode("custom");
+      if (!customDateKey) {
+        customDateKey = api.getDateKeyForOffset(0);
+      }
+    }
+
+    syncDateControls();
+    ui.setWindowLabel(getSelectedNightWindow());
+    ui.clearLocationComparison();
+    refreshForecast();
+  }
+
+  function changeCustomDate(event) {
+    if (selectedDateMode !== "custom" || !event.target.value) {
+      return;
+    }
+
+    customDateKey = event.target.value;
+    selectedDateOffset = getSelectedDateOffset();
+    syncDateControls();
+    ui.setWindowLabel(getSelectedNightWindow());
+    ui.clearLocationComparison();
+    refreshForecast();
+  }
+
   function switchFromComparison(event) {
     const locationButton = event.target.closest("[data-location-id]");
     if (!locationButton) {
@@ -213,12 +326,16 @@
   refreshButton.addEventListener("click", refreshForecast);
   compareButton.addEventListener("click", compareLocations);
   locationSelect.addEventListener("change", changeLocation);
+  dateModeSelect.addEventListener("change", changeDateMode);
+  customDateInput.addEventListener("change", changeCustomDate);
   locationCompareCards.addEventListener("click", switchFromComparison);
   document.addEventListener("click", openExternalWeatherLink);
   window.addEventListener("resize", ui.redrawChart);
   ui.renderLocationOptions(config.locations, selectedLocation.id);
+  ui.renderDateOptions(DATE_MODES, selectedDateMode);
+  syncDateControls();
   ui.setLocation(selectedLocation);
-  ui.setWindowLabel(api.getTonightWindow());
+  ui.setWindowLabel(getSelectedNightWindow());
   refreshForecast();
 
   window.CloudAppLinks = {

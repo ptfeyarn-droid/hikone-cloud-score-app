@@ -31,6 +31,16 @@
             <span>地点を選択</span>
             <select id="locationSelect" aria-label="撮影候補地を選択"></select>
           </label>
+          <div class="date-picker" aria-label="評価日を選択">
+            <label for="dateModeSelect">
+              <span>評価日</span>
+              <select id="dateModeSelect" aria-label="評価日を選択"></select>
+            </label>
+            <label id="customDateLabel" class="custom-date-label" for="customDateInput" hidden>
+              <span>日付指定</span>
+              <input id="customDateInput" type="date" />
+            </label>
+          </div>
           <button id="compareButton" class="compare-button" type="button">
             全地点を比較
           </button>

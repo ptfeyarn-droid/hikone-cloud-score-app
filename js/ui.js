@@ -3,6 +3,9 @@
     refreshButton: document.getElementById("refreshButton"),
     compareButton: document.getElementById("compareButton"),
     locationSelect: document.getElementById("locationSelect"),
+    dateModeSelect: document.getElementById("dateModeSelect"),
+    customDateLabel: document.getElementById("customDateLabel"),
+    customDateInput: document.getElementById("customDateInput"),
     nightTitle: document.getElementById("nightTitle"),
     nightWindow: document.getElementById("nightWindow"),
     statusMessage: document.getElementById("statusMessage"),
@@ -25,6 +28,8 @@
     elements.refreshButton.disabled = isLoading;
     elements.refreshButton.setAttribute("aria-busy", String(isLoading));
     elements.locationSelect.disabled = isLoading;
+    elements.dateModeSelect.disabled = isLoading;
+    elements.customDateInput.disabled = isLoading;
   }
 
   function setCompareLoading(isLoading) {
@@ -46,6 +51,32 @@
         `
       )
       .join("");
+  }
+
+  function renderDateOptions(dateModes, selectedDateMode) {
+    elements.dateModeSelect.innerHTML = dateModes
+      .map(
+        (dateMode) => `
+          <option value="${dateMode.id}" ${dateMode.id === selectedDateMode ? "selected" : ""}>
+            ${dateMode.label}
+          </option>
+        `
+      )
+      .join("");
+  }
+
+  function setDateControls(selectedDateMode, customDateKey, minDateKey, maxDateKey) {
+    elements.dateModeSelect.value = selectedDateMode;
+    elements.customDateLabel.hidden = selectedDateMode !== "custom";
+    elements.customDateInput.value = customDateKey || minDateKey;
+    elements.customDateInput.min = minDateKey;
+    elements.customDateInput.max = maxDateKey;
+  }
+
+  function clearLocationComparison() {
+    lastComparisons = [];
+    elements.locationCompare.hidden = true;
+    elements.locationCompareCards.innerHTML = "";
   }
 
   function setLocation(location) {
@@ -512,6 +543,9 @@
     setLoading,
     setCompareLoading,
     renderLocationOptions,
+    renderDateOptions,
+    setDateControls,
+    clearLocationComparison,
     renderLocationComparison,
     setLocation,
     setWindowLabel,
