@@ -1,6 +1,9 @@
 (function () {
   window.CloudAppConfig = {
     timezone: "Asia/Tokyo",
+    weeklyNightCount: 7,
+    forecastDays: 8,
+    latestNightOffset: 6,
     astroAppUrl: "https://ptfeyarn-droid.github.io/hikone-astro-app/",
     externalWeatherUrls: {
       scw: "https://supercweather.com/",

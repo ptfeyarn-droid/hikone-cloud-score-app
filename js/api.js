@@ -77,12 +77,57 @@
     return formatDateKey(getTokyoDateParts(referenceDate));
   }
 
+  function getDateFromKey(dateKey) {
+    const parts = parseDateKey(dateKey);
+    return new Date(Date.UTC(parts.year, parts.month - 1, parts.day));
+  }
+
+  function formatShortDate(dateKey) {
+    return new Intl.DateTimeFormat("ja-JP", {
+      timeZone: config.timezone,
+      month: "numeric",
+      day: "numeric",
+      weekday: "short"
+    }).format(getDateFromKey(dateKey));
+  }
+
+  function getNightTitle(dateKey, referenceDate = new Date()) {
+    const offset = getOffsetForDateKey(dateKey, referenceDate);
+
+    if (offset === 0) {
+      return "今夜";
+    }
+
+    if (offset === 1) {
+      return "明日の夜";
+    }
+
+    if (offset === 2) {
+      return "明後日の夜";
+    }
+
+    return `${formatShortDate(dateKey)}の夜`;
+  }
+
+  function getUpcomingNightSelections(referenceDate = new Date()) {
+    return Array.from({ length: config.weeklyNightCount }, (_, offset) => {
+      const dateKey = getDateKeyForOffset(offset, referenceDate);
+      return {
+        offset,
+        dateKey,
+        title: getNightTitle(dateKey, referenceDate),
+        dateLabel: formatShortDate(dateKey),
+        windowRange: getNightWindow({ dateKey }, referenceDate)
+      };
+    });
+  }
+
   function buildForecastUrl(source, location) {
     const url = new URL(source.endpoint);
     url.searchParams.set("latitude", location.latitude);
     url.searchParams.set("longitude", location.longitude);
     url.searchParams.set("timezone", config.timezone);
-    url.searchParams.set("forecast_days", "7");
+    url.searchParams.set("forecast_days", String(config.forecastDays));
     url.searchParams.set("hourly", config.hourlyFields.join(","));
     return url.toString();
   }
@@ -93,7 +138,7 @@
     }
   }
 
-  function normalizeRows(source, payload, windowRange) {
+  function normalizeRows(source, payload) {
     return payload.hourly.time
       .map((time, index) => {
         const row = {
@@ -109,11 +154,14 @@
         });
 
         return row;
-      })
-      .filter((row) => row.time >= windowRange.start && row.time <= windowRange.end);
+      });
   }
 
-  async function fetchSource(source, windowRange, location) {
+  function sliceRowsForWindow(rows, windowRange) {
+    return rows.filter((row) => row.time >= windowRange.start && row.time <= windowRange.end);
+  }
+
+  async function fetchSource(source, location) {
     const response = await fetch(buildForecastUrl(source, location));
     const payload = await response.json();
 
@@ -125,16 +173,15 @@
 
     return {
       source,
-      rows: normalizeRows(source, payload, windowRange),
+      rows: normalizeRows(source, payload),
       hourlyUnits: payload.hourly_units || {},
       fetchedAt: new Date().toISOString()
     };
   }
 
-  async function fetchNightForecasts(location, dateSelection = {}) {
-    const windowRange = getNightWindow(dateSelection);
+  async function fetchForecastBundle(location) {
     const settled = await Promise.allSettled(
-      config.sources.map((source) => fetchSource(source, windowRange, location))
+      config.sources.map((source) => fetchSource(source, location))
     );
 
     const models = [];
@@ -153,18 +200,34 @@
 
     return {
       location,
-      windowRange,
       models,
       errors
     };
   }
 
+  function buildNightForecasts(forecastBundle, dateSelection = {}) {
+    const windowRange = getNightWindow(dateSelection);
+
+    return {
+      location: forecastBundle.location,
+      windowRange,
+      models: forecastBundle.models.map((model) => ({
+        ...model,
+        rows: sliceRowsForWindow(model.rows, windowRange)
+      })),
+      errors: forecastBundle.errors || []
+    };
+  }
+
   window.CloudAppApi = {
-    fetchNightForecasts,
+    fetchForecastBundle,
+    buildNightForecasts,
     getNightWindow,
     getTonightWindow,
     getDateKeyForOffset,
     getOffsetForDateKey,
-    getTokyoDateKey
+    getTokyoDateKey,
+    getUpcomingNightSelections,
+    getNightTitle
   };
 })();

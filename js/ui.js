@@ -8,6 +8,7 @@
     customDateInput: document.getElementById("customDateInput"),
     nightTitle: document.getElementById("nightTitle"),
     nightWindow: document.getElementById("nightWindow"),
+    weeklyOutlookCards: document.getElementById("weeklyOutlookCards"),
     statusMessage: document.getElementById("statusMessage"),
     locationCompare: document.getElementById("locationCompare"),
     locationCompareCards: document.getElementById("locationCompareCards"),
@@ -77,6 +78,37 @@
     lastComparisons = [];
     elements.locationCompare.hidden = true;
     elements.locationCompareCards.innerHTML = "";
+  }
+
+  function renderWeeklyOutlook(weeklyAssessments, selectedDateKey) {
+    elements.weeklyOutlookCards.innerHTML = weeklyAssessments
+      .map((item) => {
+        const assessment = item.assessment;
+        const isSelected = item.dateKey === selectedDateKey;
+        const scoreText = Number.isFinite(assessment.overallScore) ? assessment.overallScore : "--";
+        const recommendation = formatRecommendation(assessment.recommendedWindow);
+
+        return `
+          <article class="week-card ${isSelected ? "is-selected" : ""}">
+            <button class="week-switch-button" type="button" data-date-key="${item.dateKey}" aria-pressed="${isSelected ? "true" : "false"}">
+              <span class="eyebrow">${item.title}</span>
+              <strong class="week-date">${item.dateLabel}</strong>
+              <div class="week-score-line">
+                <span class="week-grade" data-tone="${assessment.overallGrade.tone}">${assessment.overallGrade.grade}</span>
+                <div>
+                  <span class="muted">総合スコア</span>
+                  <strong class="week-score">${scoreText}</strong>
+                </div>
+              </div>
+              <dl class="week-meta">
+                <div><dt>おすすめ</dt><dd>${recommendation}</dd></div>
+                <div><dt>信頼度</dt><dd>${assessment.confidence.level}</dd></div>
+              </dl>
+            </button>
+          </article>
+        `;
+      })
+      .join("");
   }
 
   function setLocation(location) {
@@ -546,6 +578,7 @@
     renderDateOptions,
     setDateControls,
     clearLocationComparison,
+    renderWeeklyOutlook,
     renderLocationComparison,
     setLocation,
     setWindowLabel,

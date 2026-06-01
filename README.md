@@ -6,23 +6,36 @@
 
 ## 使い方
 
-`index.html` をブラウザで開くと、Open-Meteo から選択した評価日の 18:00 から翌朝 06:00 までの hourly 予報を取得します。
+`index.html` をブラウザで開くと、Open-Meteo から今後 7 夜分の hourly 予報をまとめて取得し、選択した評価日の 18:00 から翌朝 06:00 までの詳細を表示します。
 
 - 地点: 登録済み 12 地点から選択
 - 評価日: 今日の夜、明日の夜、明後日の夜、日付指定から選択
+- 週間表示: 今後 7 夜の総合スコア、判定、おすすめ時間帯、信頼度をカード表示
 - 取得モデル: Open-Meteo Best Match、JMA、GFS
 - 表示: A-E 総合判定、おすすめ時間帯、賭け候補時間帯、モデル別スコア、雲量折れ線グラフ、時系列テーブル
 - 取得項目: `cloud_cover`, `cloud_cover_low`, `cloud_cover_mid`, `cloud_cover_high`, `temperature_2m`, `relative_humidity_2m`, `dew_point_2m`, `precipitation`
 
-評価日を切り替えると、対象夜間は選択日の 18:00 から翌朝 06:00 に変わります。`全地点を比較` も現在選ばれている評価日で実行され、天文アプリ連携の `date` パラメータにも選択中の夜の日付を渡します。
+上部の週間カードを押すと、その夜の詳細へ即座に切り替わります。評価日を切り替えると、対象夜間は選択日の 18:00 から翌朝 06:00 に変わります。`全地点を比較` も現在選ばれている評価日で実行され、天文アプリ連携の `date` パラメータにも選択中の夜の日付を渡します。
 
 ## iPhone で確認
 
-同じ Wi-Fi 上の iPhone から見る場合は、Windows 側でこのフォルダを配信し、Windows の IP アドレスを iPhone Safari で開きます。
+同じ Wi-Fi 上の iPhone から見る場合は、このフォルダを簡易サーバーで配信し、Mac または Windows の IP アドレスを iPhone Safari で開きます。
 
-1. Windows で `ipconfig` を実行し、Wi-Fi の IPv4 アドレスを確認する
-2. `hikone_cloud_score_app` フォルダで `python -m http.server 8000` を実行する
-3. iPhone Safari で `http://<WindowsのIPv4アドレス>:8000/` を開く
+macOS:
+
+```bash
+python3 -m http.server 8000
+ipconfig getifaddr en0
+```
+
+Windows PowerShell:
+
+```powershell
+py -3 -m http.server 8000
+ipconfig
+```
+
+iPhone Safari で `http://<PCのIPアドレス>:8000/` を開きます。
 
 外出先から見たい場合は、静的ファイル一式を GitHub Pages で公開して Safari から開く方法もあります。公開する場合は Open-Meteo へブラウザから直接アクセスする構成であることを確認して運用してください。
 
@@ -40,7 +53,7 @@ GitHub Pages で公開した URL を iPhone Safari で開くと、ホーム画�
 ## 構成
 
 - `js/config.js`: 地点配列、取得項目、モデル設定
-- `js/api.js`: Open-Meteo 取得、今夜枠の切り出し
+- `js/api.js`: Open-Meteo 取得、今後 7 夜分の切り出し
 - `js/scoring.js`: `calculateCloudScore(hourlyData)`、時間別スコア、モデル別スコア、夜間総合判定
 - `js/ui.js`: サマリー、グラフ、テーブル描画
 - `js/app.js`: 起動処理と再取得ボタン
@@ -48,6 +61,8 @@ GitHub Pages で公開した URL を iPhone Safari で開くと、ホーム画�
 この分割は、将来 `api.js` の取得先を FastAPI に差し替え、FastAPI 側で Open-Meteo レスポンスや SQLite 保存を担当できるようにしてあります。
 
 Best Match は上部カードとグラフで見る参考表示です。判断主軸は JMA/GFS 比較であり、総合スコア、A-E 判定、モデル不一致度、おすすめ時間帯、詳細テーブルは `ensembleModels = ["jma", "gfs"]` に従い JMA と GFS で行います。
+
+今後 7 夜を出すため、Open-Meteo には 8 日分の hourly データをリクエストし、各夜の 18:00 - 翌 06:00 をフロントエンド側で切り出しています。これにより、日付を切り替えても通常は再取得なしで詳細を見直せます。
 
 ## 地点を追加
 

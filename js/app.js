@@ -8,6 +8,7 @@
   const locationSelect = document.getElementById("locationSelect");
   const dateModeSelect = document.getElementById("dateModeSelect");
   const customDateInput = document.getElementById("customDateInput");
+  const weeklyOutlookCards = document.getElementById("weeklyOutlookCards");
   const locationCompareCards = document.getElementById("locationCompareCards");
   const STORAGE_KEY = "hikone-cloud-score-location";
   const DATE_MODE_STORAGE_KEY = "hikone-cloud-score-date-mode";
@@ -21,6 +22,8 @@
   let selectedDateMode = getInitialDateMode();
   let customDateKey = api.getDateKeyForOffset(0);
   let selectedDateOffset = getSelectedDateOffset();
+  let currentForecastBundle = null;
+  let currentWeeklyAssessments = [];
 
   function getStoredLocationId() {
     try {
@@ -103,7 +106,7 @@
       selectedDateMode,
       selectedDateMode === "custom" ? customDateKey : api.getDateKeyForOffset(selectedDateOffset),
       api.getDateKeyForOffset(0),
-      api.getDateKeyForOffset(5)
+      api.getDateKeyForOffset(config.latestNightOffset)
     );
   }
 
@@ -175,6 +178,69 @@
     window.open(button.dataset.externalWeatherUrl, "_blank", "noopener,noreferrer");
   }
 
+  function getSelectedDateKey() {
+    return getSelectedNightWindow().dateKey;
+  }
+
+  function buildWeeklyAssessments(forecastBundle) {
+    return api.getUpcomingNightSelections().map((selection) => {
+      const apiResult = api.buildNightForecasts(forecastBundle, { dateKey: selection.dateKey });
+      return {
+        ...selection,
+        assessment: scoring.assessNight(apiResult)
+      };
+    });
+  }
+
+  function getSelectedAssessmentEntry() {
+    const selectedDateKey = getSelectedDateKey();
+    const weeklyEntry = currentWeeklyAssessments.find((entry) => entry.dateKey === selectedDateKey);
+
+    if (weeklyEntry) {
+      return weeklyEntry;
+    }
+
+    if (!currentForecastBundle) {
+      return null;
+    }
+
+    const apiResult = api.buildNightForecasts(currentForecastBundle, { dateKey: selectedDateKey });
+    return {
+      dateKey: selectedDateKey,
+      title: api.getNightTitle(selectedDateKey),
+      dateLabel: selectedDateKey,
+      windowRange: apiResult.windowRange,
+      assessment: scoring.assessNight(apiResult)
+    };
+  }
+
+  function renderCurrentSelection(statusMessage) {
+    const selectedEntry = getSelectedAssessmentEntry();
+    if (!selectedEntry) {
+      return;
+    }
+
+    ui.setWindowLabel(selectedEntry.windowRange);
+    ui.renderWeeklyOutlook(currentWeeklyAssessments, selectedEntry.dateKey);
+    ui.renderForecast(selectedEntry.assessment, {
+      astroAppUrl: buildAstroAppUrl(selectedLocation, selectedEntry.assessment),
+      scwUrl: buildScwUrl(selectedLocation),
+      gpvUrl: buildGpvUrl(selectedLocation)
+    });
+
+    if (statusMessage) {
+      ui.setStatus(statusMessage);
+      return;
+    }
+
+    if (currentForecastBundle && currentForecastBundle.errors.length) {
+      const failedLabels = currentForecastBundle.errors.map((error) => error.source.label).join(", ");
+      ui.setStatus(`${failedLabels} の取得に失敗しました。取得済みモデルで表示しています。`, "partial");
+    } else {
+      ui.setStatus("1週間の夜スコアを更新しました。カードから各夜の詳細を切り替えられます。");
+    }
+  }
+
   async function refreshForecast() {
     ui.setLoading(true);
     const dateSelection = getDateSelection();
@@ -182,28 +248,16 @@
     ui.setStatus(`${selectedLocation.name} の ${windowRange.label} を Open-Meteo から取得しています...`);
 
     try {
-      const apiResult = await api.fetchNightForecasts(selectedLocation, dateSelection);
-      ui.setWindowLabel(apiResult.windowRange);
-      ui.setLocation(apiResult.location);
+      currentForecastBundle = await api.fetchForecastBundle(selectedLocation);
+      ui.setLocation(selectedLocation);
 
-      if (!apiResult.models.length) {
-        const failure = apiResult.errors.map((error) => error.message).join(" / ");
+      if (!currentForecastBundle.models.length) {
+        const failure = currentForecastBundle.errors.map((error) => error.message).join(" / ");
         throw new Error(failure || "モデル別データを取得できませんでした。");
       }
 
-      const assessment = scoring.assessNight(apiResult);
-      ui.renderForecast(assessment, {
-        astroAppUrl: buildAstroAppUrl(apiResult.location, assessment),
-        scwUrl: buildScwUrl(apiResult.location),
-        gpvUrl: buildGpvUrl(apiResult.location)
-      });
-
-      if (apiResult.errors.length) {
-        const failedLabels = apiResult.errors.map((error) => error.source.label).join(", ");
-        ui.setStatus(`${failedLabels} の取得に失敗しました。取得済みモデルで表示しています。`, "partial");
-      } else {
-        ui.setStatus("夜間データを更新しました。3 系列の差と時間別スコアを確認できます。");
-      }
+      currentWeeklyAssessments = buildWeeklyAssessments(currentForecastBundle);
+      renderCurrentSelection();
     } catch (error) {
       ui.setStatus(error instanceof Error ? error.message : String(error), "error");
     } finally {
@@ -230,10 +284,12 @@
       for (const location of config.locations) {
         try {
           ui.setStatus(`${location.name} の ${windowRange.label} を比較用に取得しています...`);
-          const apiResult = await api.fetchNightForecasts(location, dateSelection);
-          if (!apiResult.models.length) {
+          const forecastBundle = await api.fetchForecastBundle(location);
+          if (!forecastBundle.models.length) {
             throw new Error("モデル別データがありません。");
           }
+
+          const apiResult = api.buildNightForecasts(forecastBundle, dateSelection);
 
           comparisons.push({
             location,
@@ -296,8 +352,13 @@
     }
 
     syncDateControls();
-    ui.setWindowLabel(getSelectedNightWindow());
     ui.clearLocationComparison();
+
+    if (currentForecastBundle) {
+      renderCurrentSelection(`${api.getNightTitle(getSelectedDateKey())}へ切り替えました。取得済みの1週間データを表示しています。`);
+      return;
+    }
+
     refreshForecast();
   }
 
@@ -309,9 +370,29 @@
     customDateKey = event.target.value;
     selectedDateOffset = getSelectedDateOffset();
     syncDateControls();
-    ui.setWindowLabel(getSelectedNightWindow());
     ui.clearLocationComparison();
+
+    if (currentForecastBundle) {
+      renderCurrentSelection(`${api.getNightTitle(customDateKey)}へ切り替えました。取得済みの1週間データを表示しています。`);
+      return;
+    }
+
     refreshForecast();
+  }
+
+  function switchWeeklyNight(event) {
+    const dateButton = event.target.closest("[data-date-key]");
+    if (!dateButton) {
+      return;
+    }
+
+    customDateKey = dateButton.dataset.dateKey;
+    selectedDateMode = "custom";
+    selectedDateOffset = getSelectedDateOffset();
+    storeDateMode("custom");
+    syncDateControls();
+    ui.clearLocationComparison();
+    renderCurrentSelection(`${api.getNightTitle(customDateKey)}へ切り替えました。取得済みの1週間データを表示しています。`);
   }
 
   function switchFromComparison(event) {
@@ -328,6 +409,7 @@
   locationSelect.addEventListener("change", changeLocation);
   dateModeSelect.addEventListener("change", changeDateMode);
   customDateInput.addEventListener("change", changeCustomDate);
+  weeklyOutlookCards.addEventListener("click", switchWeeklyNight);
   locationCompareCards.addEventListener("click", switchFromComparison);
   document.addEventListener("click", openExternalWeatherLink);
   window.addEventListener("resize", ui.redrawChart);
