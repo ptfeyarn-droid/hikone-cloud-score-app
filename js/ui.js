@@ -25,17 +25,27 @@
   let lastComparisons = [];
   let lastLinkBuilders = null;
 
+  let forecastLoading = false;
+  let comparisonLoading = false;
+
+  function syncLoading() {
+    const busy = forecastLoading || comparisonLoading;
+    [elements.refreshButton, elements.compareButton, elements.locationSelect,
+      elements.dateModeSelect, elements.customDateInput,
+      ...document.querySelectorAll("[data-date-key], [data-location-id]")]
+      .forEach((element) => { element.disabled = busy; });
+    elements.refreshButton.setAttribute("aria-busy", String(forecastLoading));
+    elements.compareButton.setAttribute("aria-busy", String(comparisonLoading));
+  }
+
   function setLoading(isLoading) {
-    elements.refreshButton.disabled = isLoading;
-    elements.refreshButton.setAttribute("aria-busy", String(isLoading));
-    elements.locationSelect.disabled = isLoading;
-    elements.dateModeSelect.disabled = isLoading;
-    elements.customDateInput.disabled = isLoading;
+    forecastLoading = isLoading;
+    syncLoading();
   }
 
   function setCompareLoading(isLoading) {
-    elements.compareButton.disabled = isLoading;
-    elements.compareButton.setAttribute("aria-busy", String(isLoading));
+    comparisonLoading = isLoading;
+    syncLoading();
   }
 
   function setWindowLabel(windowRange) {
@@ -181,7 +191,19 @@
     lastComparisons = comparisons;
     lastLinkBuilders = linkBuilders;
     elements.locationCompare.hidden = false;
-    elements.locationCompareCards.innerHTML = comparisons
+    const eligible = comparisons.filter((item) => item.assessment.complete && Number.isFinite(item.assessment.overallScore));
+    const topScore = Math.max(...eligible.map((item) => item.assessment.overallScore));
+    const winners = eligible.filter((item) => item.assessment.overallScore === topScore);
+    const recommended = topScore >= 55;
+    const bestSummary = winners.length ? `
+      <div class="best-location-summary">
+        <p class="eyebrow">${recommended ? "登録地域のおすすめ" : "今回はおすすめ地点なし・比較上の最上位"}</p>
+        <h3>${winners.map((item) => `<button class="location-switch-button" type="button" data-location-id="${item.location.id}">${item.location.name}</button>`).join(" / ")}${winners.length > 1 ? "（同点）" : ""}</h3>
+        <strong>${topScore}点 · 23時〜3時を重視</strong>
+        <p class="muted">${lastComparisons[0].assessment.windowRange.label} · 全12時間のJMA/GFSが揃った ${eligible.length} / ${window.CloudAppConfig.locations.length} 地点で比較${eligible.length < window.CloudAppConfig.locations.length ? "（暫定順位）" : ""}。光害・移動距離・現地の利用条件は未評価です。</p>
+        <p class="muted">${recommended ? "予報割れと現地の空も確認してください。" : "最上位でも撮影条件は厳しい見込みです。"}</p>
+      </div>` : '<div class="best-location-summary">データ不足のため、おすすめ地点を判定できません。</div>';
+    elements.locationCompareCards.innerHTML = bestSummary + comparisons
       .map((item) => {
         const assessment = item.assessment;
         const isSelected = item.location.id === selectedLocationId;
@@ -199,7 +221,8 @@
               <span>${assessment.overallGrade.label}</span>
             </div>
             <dl>
-              <div><dt>総合スコア</dt><dd>${formatValue(assessment.overallScore)}</dd></div>
+              <div><dt>総合スコア</dt><dd>${formatValue(assessment.overallScore)}${assessment.complete ? "" : "（暫定）"}</dd></div>
+              <div><dt>透明度の目安</dt><dd>${formatValue(assessment.transparency)} / 100（推定）</dd></div>
               <div><dt>おすすめ</dt><dd>${formatRecommendation(assessment.recommendedWindow)}</dd></div>
               <div><dt>賭け候補</dt><dd>${formatGambleWindow(assessment.gambleWindow)}</dd></div>
               <div><dt>信頼度</dt><dd>${assessment.confidence.level}</dd></div>
@@ -252,7 +275,7 @@
     elements.verdictPanel.hidden = false;
     elements.verdictPanel.innerHTML = `
       <div class="grade-block" data-tone="${assessment.overallGrade.tone}">
-        <span class="eyebrow">今夜の総合判定</span>
+        <span class="eyebrow">選択した夜の総合判定</span>
         <div class="grade-line">
           <strong>${assessment.overallGrade.grade}</strong>
           <span>${assessment.overallGrade.label}</span>
@@ -260,7 +283,7 @@
         <div class="mobile-score-inline">
           <span class="eyebrow">総合スコア</span>
           <strong>${Number.isFinite(assessment.overallScore) ? assessment.overallScore : "--"}</strong>
-          <span>JMA / GFS 集計</span>
+          <span>23〜3時を重視${assessment.complete ? "" : "・データ不足（暫定）"}</span>
         </div>
       </div>
       <div class="verdict-copy">
@@ -284,7 +307,9 @@
             </div>
           </div>
         </div>
-        <p class="muted">JMA と GFS の平均スコアが 70 点以上の連続区間だけをおすすめ候補にしています。</p>
+        <p><strong>透明度の目安：${formatValue(assessment.transparency)} / 100（推定）</strong></p>
+        <p class="muted">高層雲・湿度・露点差からの独自指標です。実測の透過率ではなく、黄砂・煙・エアロゾルは未評価です。</p>
+        <p class="muted">時間別スコア70点以上の連続区間から、23時〜3時を重視して選びます。</p>
         <p class="muted">${assessment.confidence.note}</p>
         <div class="warning-row">${warnings}${lowConfidenceCallout}${nearFieldCallout}</div>
       </div>
@@ -332,7 +357,8 @@
           ${assessment.overallAssessment.label}
         </span>
         <strong>${assessment.overallAssessment.note}</strong>
-        <p class="muted">${modelCount} 系列、${validHours} 時間の比較平均です。Best Match は参考表示で集計には含めません。</p>
+        <p class="muted">${modelCount} 系列、${validHours} 時間の加重平均${assessment.complete ? "" : "（データ不足・暫定）"}です。Best Match は参考表示です。</p>
+        <p class="muted">採点の重み：23〜3時 ×4 ／ 21〜23時・3〜4時 ×1 ／ 18〜21時・4〜6時 ×0.5（日本時間）。</p>
         ${renderCloudLayers(assessment)}
       </div>
     `;
@@ -405,6 +431,8 @@
             <td>${formatValue(row.jmaScore)}</td>
             <td>${formatValue(row.gfsScore)}</td>
             <td class="row-score">${formatValue(row.averageScore)}</td>
+            <td>${formatValue(row.transparency)}</td>
+            <td>×${row.nightWeight}</td>
             <td>${formatValue(row.relative_humidity_2m)}</td>
             <td>${formatValue(row.dewPointSpread, 1)}</td>
             <td>${row.warnings.length ? row.warnings.join(" / ") : "--"}</td>

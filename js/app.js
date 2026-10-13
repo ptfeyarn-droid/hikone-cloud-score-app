@@ -272,6 +272,7 @@
   }
 
   async function compareLocations() {
+    ui.clearLocationComparison();
     ui.setCompareLoading(true);
     const dateSelection = getDateSelection();
     const windowRange = api.getNightWindow(dateSelection);

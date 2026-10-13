@@ -22,9 +22,28 @@
     );
   }
 
-  function getHumidityPenalty(row) {
-    const humidity = safeNumber(row.relative_humidity_2m);
-    return humidity > 80 ? Math.min(14, (humidity - 80) * 0.7) : 0;
+  // Forecast timestamps are local Asia/Tokyo; each row represents one hour.
+  function getNightWeight(time) {
+    const hour = Number(time.slice(11, 13));
+    if (hour === 23 || hour < 3) return 4;
+    if (hour === 21 || hour === 22 || hour === 3) return 1;
+    return 0.5;
+  }
+
+  function weightedAverage(rows, key = "score") {
+    const valid = rows.filter((row) => Number.isFinite(row[key]));
+    const weight = valid.reduce((sum, row) => sum + getNightWeight(row.time), 0);
+    return weight ? valid.reduce((sum, row) => sum + row[key] * getNightWeight(row.time), 0) / weight : null;
+  }
+
+  function estimateTransparency(row) {
+    const spread = getDewPointSpread(row);
+    if (!Number.isFinite(row.cloud_cover_high) ||
+        !Number.isFinite(row.relative_humidity_2m) || !Number.isFinite(spread)) return null;
+    // An uncalibrated proxy, not optical transmission or aerosol measurement.
+    const haze = clamp((row.relative_humidity_2m - 60) / 40, 0, 1);
+    const dew = clamp((5 - spread) / 5, 0, 1);
+    return roundScore(100 - clamp(row.cloud_cover_high, 0, 100) * 0.5 - haze * 30 - dew * 20);
   }
 
   function getPrecipitationPenalty(row) {
@@ -55,9 +74,11 @@
   }
 
   function calculateCloudScore(hourlyData) {
-    if (!Number.isFinite(hourlyData.cloud_cover)) {
+    const transparency = estimateTransparency(hourlyData);
+    if (!config.hourlyFields.every((field) => Number.isFinite(hourlyData[field]))) {
       return {
         score: null,
+        transparency,
         scoreDetail: null,
         dewPointSpread: getDewPointSpread(hourlyData),
         warnings: []
@@ -65,9 +86,9 @@
     }
 
     const cloudPenalty = getCloudPenalty(hourlyData);
-    const humidityPenalty = getHumidityPenalty(hourlyData);
+    const transparencyPenalty = (100 - transparency) * 0.2;
     const precipitationPenalty = getPrecipitationPenalty(hourlyData);
-    const score = roundScore(100 - cloudPenalty - humidityPenalty - precipitationPenalty);
+    const score = roundScore(100 - cloudPenalty - transparencyPenalty - precipitationPenalty);
     const warnings = [];
 
     if (isThinCloudRisk(hourlyData)) {
@@ -80,11 +101,12 @@
 
     return {
       score,
+      transparency,
       dewPointSpread: getDewPointSpread(hourlyData),
       warnings,
       scoreDetail: {
         cloudPenalty: Math.round(cloudPenalty),
-        humidityPenalty: Math.round(humidityPenalty),
+        transparencyPenalty: Math.round(transparencyPenalty),
         precipitationPenalty: Math.round(precipitationPenalty)
       }
     };
@@ -189,14 +211,14 @@
   function summarizeModel(model) {
     const rows = model.rows.map(scoreHour);
     const validScores = rows.map((row) => row.score).filter(Number.isFinite);
-    const averageScore = average(validScores);
+    const averageScore = weightedAverage(rows);
     const shootableHours = validScores.filter((score) => score >= 70).length;
     const bestRow = rows.reduce((best, row) => {
       if (!Number.isFinite(row.score)) {
         return best;
       }
 
-      if (!best || row.score > best.score) {
+      if (!best || row.score * getNightWeight(row.time) > best.score * getNightWeight(best.time)) {
         return row;
       }
 
@@ -244,6 +266,7 @@
         return {
           time,
           score: Number.isFinite(meanScore) ? roundScore(meanScore) : null,
+          transparency: average(rows.map((row) => row.transparency)),
           cloud_cover: average(rows.map((row) => row.cloud_cover)),
           cloud_cover_low: average(rows.map((row) => row.cloud_cover_low)),
           cloud_cover_mid: average(rows.map((row) => row.cloud_cover_mid)),
@@ -311,14 +334,11 @@
     const rankedRanges = getContiguousRanges(recommendedRows)
       .map((rows) => ({
         rows,
-        averageScore: getRangeAverage(rows)
+        averageScore: getRangeAverage(rows),
+        priority: rows.reduce((sum, row) => sum + row.score * getNightWeight(row.time), 0)
       }))
       .sort((left, right) => {
-        if (right.rows.length !== left.rows.length) {
-          return right.rows.length - left.rows.length;
-        }
-
-        return right.averageScore - left.averageScore;
+        return right.priority - left.priority || right.averageScore - left.averageScore;
       });
     const winner = rankedRanges[0];
     const start = winner.rows[0].time;
@@ -543,6 +563,8 @@
         jmaScore: jmaRow ? jmaRow.score : null,
         gfsScore: gfsRow ? gfsRow.score : null,
         averageScore: row.score,
+        transparency: row.transparency,
+        nightWeight: getNightWeight(row.time),
         relative_humidity_2m: row.relative_humidity_2m,
         dewPointSpread: row.dewPointSpread,
         warnings,
@@ -610,15 +632,23 @@
       rows: addModelDifference(model.rows, modelDifference)
     }));
     const ensembleModelsWithDifference = modelsWithDifference.filter((model) => model.isEnsemble);
-    const modelScores = ensembleModelsWithDifference.map((model) => model.averageScore);
-    const overallAverage = average(modelScores);
-    const overallScore = Number.isFinite(overallAverage) ? roundScore(overallAverage) : null;
-    const overallGrade = gradeNight(overallAverage);
     const hourlyConsensus = addModelDifference(
       summarizeByTime(ensembleModelsWithDifference),
       modelDifference
     );
 
+    const overallAverage = weightedAverage(hourlyConsensus);
+    const overallScore = Number.isFinite(overallAverage) ? roundScore(overallAverage) : null;
+    const overallGrade = gradeNight(overallScore);
+    // Do not rank a partially observed night above a complete forecast.
+    const complete = config.ensembleModels.every((id) => {
+      const model = ensembleModelsWithDifference.find((item) => item.source.id === id);
+      return model && model.rows.length === 12 && model.rows.every((row, index) =>
+        Number.isFinite(row.score) && row.time === (index ? addOneHour(model.rows[index - 1].time) : apiResult.windowRange.start));
+    });
+    if (!complete) {
+      modelDifference.confidence = { level: "低", tone: "poor", note: "JMA / GFS の全12時間が揃っていません。総合スコアは取得できた時間のみの暫定値です。" };
+    }
     const comparisonRows = buildComparisonRows(ensembleModelsWithDifference, hourlyConsensus);
 
     return {
@@ -626,6 +656,8 @@
       models: modelsWithDifference,
       ensembleModels: ensembleModelsWithDifference,
       overallScore,
+      complete,
+      transparency: weightedAverage(hourlyConsensus, "transparency"),
       overallAssessment: describeScore(overallAverage),
       overallGrade,
       hourlyConsensus,
@@ -640,6 +672,8 @@
   }
 
   window.CloudAppScoring = {
+    getNightWeight,
+    estimateTransparency,
     assessNight,
     calculateCloudScore,
     describeScore,

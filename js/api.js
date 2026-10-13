@@ -158,7 +158,7 @@
   }
 
   function sliceRowsForWindow(rows, windowRange) {
-    return rows.filter((row) => row.time >= windowRange.start && row.time <= windowRange.end);
+    return rows.filter((row) => row.time >= windowRange.start && row.time < windowRange.end);
   }
 
   async function fetchSource(source, location) {
