@@ -94,6 +94,13 @@
         latitude: 34.488391,
         longitude: 136.16591,
         elevation: 520
+      },
+      {
+        id: "hioki",
+        name: "鹿児島県日置市",
+        latitude: 31.633611,
+        longitude: 130.4025,
+        elevation: 73.2
       }
     ],
     hourlyFields: [
